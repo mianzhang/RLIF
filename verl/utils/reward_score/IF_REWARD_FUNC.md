@@ -66,6 +66,14 @@ The integration follows VERL's existing pattern and works seamlessly with the tr
 - **Instructions**: Length constraints, format requirements, content specifications, etc.
 - **Performance**: Generally higher success rates, more reliable evaluation
 
+### LogicIF Mini
+- **Data source identifier**: `"logicifeval-mini"`
+- **Description**: LogicIF evaluates manual function execution and algorithmic reasoning capabilities
+- **Evaluation types**: Exact matching of both output and execution statistics
+- **Instructions**: Step-by-step algorithmic execution with precise output and statistics tracking
+- **Extraction method**: Uses OpenAI models (default: gpt-5-mini) for structured extraction
+- **Performance**: Requires exact matching of both numerical output and execution statistics
+
 ## Usage Guide
 
 ### Basic Usage
@@ -94,21 +102,48 @@ ground_truth_ifeval = {
 response = "Machine learning is a subset of AI that enables computers to learn from data."
 score = default_compute_score("ifeval", response, ground_truth_ifeval)
 print(score)  # {'score': 1.0, 'acc': True, 'follow_all_instructions': True, ...}
+
+# For LogicIF Mini
+ground_truth_logicif = {
+    "task_id": "CODEFORCES_883A-0",
+    "code_output": {
+        "output": 20,
+        "stats": {
+            "used_rope": True,
+            "rope_units": 5,
+            "direct_torches": 0
+        }
+    }
+}
+
+response = """**Reasoning:** Following the algorithm step by step...
+**Output:** 20
+**Statistics:** {"used_rope": true, "rope_units": 5, "direct_torches": 0}"""
+score = default_compute_score("logicifeval-mini", response, ground_truth_logicif)
+print(score)  # {'score': 1.0, 'both_match': True, 'output_match': True, 'stats_match': True, ...}
 ```
 
 ### Direct Module Usage
 
 ```python
-from verl.utils.reward_score import ifbench, ifeval
+from verl.utils.reward_score import ifbench, ifeval, logicifmini
 
 # Direct IFBench usage
 result = ifbench.compute_score(response, ground_truth, strict=True)
 
 # Direct IFEval usage  
 result = ifeval.compute_score(response, ground_truth, strict=False)  # loose evaluation
+
+# Direct LogicIF Mini usage (default gpt-5-mini)
+result = logicifmini.compute_score(response, ground_truth)
+
+# Direct LogicIF Mini usage (with custom model)
+result = logicifmini.compute_score(response, ground_truth, extract_model="gpt-4o")
 ```
 
 ### Ground Truth Format
+
+#### For IFBench and IFEval
 
 The ground truth should be a dictionary (or JSON string) containing:
 
@@ -128,9 +163,35 @@ ground_truth = {
 }
 ```
 
+#### For LogicIF Mini
+
+The ground truth should be a dictionary (or JSON string) containing:
+
+- `task_id`: Task identifier string (e.g., "CODEFORCES_883A-0")
+- `code_output`: Dictionary with expected results
+  - `output`: Expected numerical or other output value
+  - `stats`: Dictionary with expected execution statistics
+
+Example:
+```python
+ground_truth = {
+    "task_id": "CODEFORCES_883A-0",
+    "code_output": {
+        "output": 20,
+        "stats": {
+            "used_rope": True,
+            "rope_units": 5,
+            "direct_torches": 0
+        }
+    }
+}
+```
+
 ### Return Format
 
-All scoring functions return a dictionary containing:
+#### For IFBench and IFEval
+
+The scoring functions return a dictionary containing:
 
 ```python
 {
@@ -143,6 +204,27 @@ All scoring functions return a dictionary containing:
     "accuracy": 1.0,  # Ratio of followed instructions
     "evaluation_mode": "strict",
     "instruction_ids": ["count:word_count_range", "format:title_case"]
+}
+```
+
+#### For LogicIF Mini
+
+The scoring function returns a dictionary containing:
+
+```python
+{
+    "score": 1.0,  # Binary: 1.0 for success, 0.0 for failure
+    "output_match": True,  # Whether outputs match
+    "stats_match": True,   # Whether stats match
+    "both_match": True,    # Whether both output and stats match
+    "expected_output": 20,
+    "actual_output": 20,
+    "expected_stats": {"used_rope": True, "rope_units": 5, "direct_torches": 0},
+    "actual_stats": {"used_rope": True, "rope_units": 5, "direct_torches": 0},
+    "task_id": "CODEFORCES_883A-0",
+    "has_error": False,
+    "error_message": None,
+    "extraction_method": "openai"
 }
 ```
 
@@ -226,14 +308,22 @@ Successfully implemented and tested instruction following evaluation for both IF
 - Fallback behaviors for edge cases
 - No crashes on malformed input
 
-#### 4. **VERL Integration**
+#### 4. **LogicIF Response Parsing**
+- **OpenAI-based intelligent extraction** using gpt-5-mini
+- **Smart format analysis**: Automatic detection of expected output types (int, list[int], dict, etc.)
+- Extraction of both numerical outputs and execution statistics from unstructured text
+- Support for various response formats and natural language descriptions
+- Robust handling of malformed responses with automatic retry logic
+
+#### 5. **VERL Integration**
 - Follows VERL's reward scoring patterns
 - Compatible with existing training pipelines
 - Returns standardized score dictionaries
 - Supports both dictionary and JSON string ground truth
 
-#### 5. **Detailed Metrics**
-- Per-instruction evaluation results
+#### 6. **Detailed Metrics**
+- Per-instruction evaluation results (IFBench/IFEval)
+- Output and statistics matching (LogicIF)
 - Overall success rates
 - Accuracy calculations
 - Debugging information
@@ -248,19 +338,28 @@ Successfully implemented and tested instruction following evaluation for both IF
 - Tries multiple variations of the response (removing first/last lines, asterisks, etc.)
 - More lenient evaluation that accounts for common formatting variations
 
+#### LogicIF Evaluation Mode
+- Exact matching mode for both output and execution statistics
+- Uses OpenAI models (gpt-5-mini) for intelligent extraction from unstructured responses
+- Automatic output format detection (int, float, list[int], dict[str: int], tuple, etc.)
+- Requires OpenAI API access for operation
+- Requires precise numerical output match
+- Requires exact statistics dictionary match
+- No loose evaluation - algorithmic correctness demands precision
+
 ## Data Preparation
 
 The implementation works with data transformed by the provided scripts:
 
 ```bash
-# Transform test data
-python RLIF_data/create_verl_test_data.py --ifbench_file path/to/ifbench_test.jsonl --ifeval_file path/to/ifeval_test.jsonl
+# Transform test data (including LogicIF)
+python RLIF_data/create_verl_test_data.py --ifbench_file path/to/ifbench_test.jsonl --ifeval_file path/to/ifeval_test.jsonl --logicif_file path/to/logicif_mini.jsonl
 
 # Transform training data  
 python RLIF_data/create_verl_train_data.py --input_file path/to/training_data.jsonl
 ```
 
-These scripts convert IFBench and IFEval data to VERL-compatible format with proper ground truth structure.
+These scripts convert IFBench, IFEval, and LogicIF data to VERL-compatible format with proper ground truth structure.
 
 ## Integration with VERL
 
@@ -274,6 +373,10 @@ data:
 # For IFEval data  
 data:
   data_source_key: "data_source"  # Should contain "ifeval"
+
+# For LogicIF Mini data
+data:
+  data_source_key: "data_source"  # Should contain "logicifeval-mini"
 ```
 
 The implementation is ready for use. To get started:
@@ -290,12 +393,22 @@ The modules will automatically handle the instruction following evaluation and p
 ### Required for Full Functionality
 - **IFBench dependencies**: `nltk`, `spacy`, `emoji`, `syllapy`, etc.
 - **IFEval dependencies**: `langdetect`, `absl-py`, etc.
+- **LogicIF dependencies**: `openai` package (for intelligent extraction)
 - **VERL dependencies**: Standard VERL installation
 
 ### Graceful Degradation
 - Modules handle missing dependencies gracefully
-- Return appropriate error messages
+- LogicIF returns appropriate error messages if OpenAI is unavailable
 - Don't crash the training pipeline
+
+### OpenAI Setup (for LogicIF)
+To enable intelligent extraction for LogicIF:
+
+1. **Install OpenAI package**: `pip install openai`
+2. **Set API key**: Set `OPENAI_API_KEY` environment variable
+3. **Default model**: Uses `gpt-5-mini` (configurable)
+
+LogicIF requires OpenAI API access to function properly.
 
 The modules automatically locate and import the IFBench and IFEval evaluation frameworks from the `RLIF_data` directory. Required dependencies include:
 
@@ -386,12 +499,20 @@ The implementation has been comprehensively tested for:
 
 ## Conclusion
 
-The evaluation system is fully functional and provides detailed insights into model instruction-following capabilities. The significant performance difference between IFBench and IFEval highlights the importance of benchmark selection and the varying difficulty of different instruction types. The implementation is ready for production use in VERL training pipelines.
+The evaluation system is fully functional and provides detailed insights into model instruction-following and algorithmic reasoning capabilities. The implementation supports three distinct evaluation frameworks:
+
+- **IFBench**: Challenging instruction following with complex constraints
+- **IFEval**: Reliable instruction following with higher success rates  
+- **LogicIF Mini**: Precise algorithmic execution with intelligent OpenAI-based extraction (gpt-5-mini) and exact matching
+
+The significant performance differences between benchmarks highlight the importance of evaluation method selection and the varying difficulty of different task types. The implementation is ready for production use in VERL training pipelines.
 
 The technical implementation successfully overcame complex challenges including:
 - Module dependency conflicts resolution
 - Automatic path discovery and framework loading
+- Advanced response parsing for structured outputs
+- Intelligent output format analysis (adapted from LogicIF evaluation.py)
 - Robust error handling and graceful degradation
-- Comprehensive metrics generation for both prompt and instruction levels
+- Comprehensive metrics generation for multiple evaluation modes
 
-This complete guide serves as the definitive resource for understanding, implementing, and using instruction following evaluation in VERL training pipelines. 
+This complete guide serves as the definitive resource for understanding, implementing, and using instruction following and algorithmic reasoning evaluation in VERL training pipelines. 
