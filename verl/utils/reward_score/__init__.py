@@ -109,6 +109,10 @@ def default_compute_score(
         from . import ifeval
 
         res = ifeval.compute_score(solution_str, ground_truth)
+    elif data_source == "logicifeval-mini":
+        from . import logicifmini
+
+        res = logicifmini.compute_score(solution_str, ground_truth)
 
     else:
         raise NotImplementedError(f"Reward function is not implemented for {data_source=}")
