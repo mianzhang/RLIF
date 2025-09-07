@@ -146,7 +146,7 @@ Return JSON format:
 
 
 def openai_inference(conversations: Union[List[List[Dict]], List[Dict]], 
-                     model: str = "gpt-5-mini", 
+                     model: str = "gpt-5-nano", 
                      return_json: bool = False, 
                      temperature: Optional[float] = None) -> List[str]:
     """
@@ -198,7 +198,7 @@ def openai_inference(conversations: Union[List[List[Dict]], List[Dict]],
 
 
 def extract_output_with_openai(response: str, stats_keys: List[str], 
-                               extract_model: str = "gpt-5-mini", 
+                               extract_model: str = "gpt-5-nano", 
                                output_format: str = "unknown") -> Tuple[Any, Dict[str, Any], str]:
     """
     Extract structured output and statistics from LLM response using OpenAI.
@@ -207,7 +207,7 @@ def extract_output_with_openai(response: str, stats_keys: List[str],
     Args:
         response: LLM response to extract from
         stats_keys: Expected statistics keys
-        extract_model: Model to use for extraction (e.g., 'gpt-5-mini')
+        extract_model: Model to use for extraction (e.g., 'gpt-5-nano')
         output_format: Expected output format
         
     Returns:
@@ -240,7 +240,7 @@ def extract_output_with_openai(response: str, stats_keys: List[str],
             print(f"Unexpected error in extract_output: {e}", flush=True)
             return {}, ""
 
-    max_retries = 3
+    max_retries = 5
     base_delay = 1.0
     retry_count = 0
     
@@ -281,7 +281,7 @@ def extract_output_with_openai(response: str, stats_keys: List[str],
 
 
 def parse_model_response(response: str, expected_stats_keys: List[str] = None, 
-                        extract_model: str = "gpt-5-mini", 
+                        extract_model: str = "gpt-5-nano", 
                         expected_output: Any = None) -> Dict[str, Any]:
     """
     Parse the model's response using OpenAI to extract the output and statistics.
@@ -308,6 +308,7 @@ def parse_model_response(response: str, expected_stats_keys: List[str] = None,
         )
         
         if extract_response == "[ERROR]":
+            print(f"Error in OpenAI-based parsing: {extract_response}")
             return {'output': None, 'stats': None}
         
         return {'output': output, 'stats': stats}
@@ -351,10 +352,10 @@ def compare_stats(expected: Dict[str, Any], actual: Dict[str, Any]) -> bool:
         True if stats match exactly, False otherwise
     """
     if expected is None or actual is None:
-        return expected == actual
+        return False
     
     if not isinstance(expected, dict) or not isinstance(actual, dict):
-        return expected == actual
+        return False
     
     # Check if all expected keys are present with correct values
     for key, expected_value in expected.items():
@@ -384,7 +385,7 @@ def compare_stats(expected: Dict[str, Any], actual: Dict[str, Any]) -> bool:
 
 
 def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]], 
-                 extract_model: str = "gpt-5-mini") -> Dict[str, Any]:
+                 extract_model: str = "gpt-5-nano") -> Dict[str, Any]:
     """
     Compute LogicIF reward score by comparing model output with expected results.
     
@@ -393,7 +394,7 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]],
         ground_truth: Ground truth data (JSON string or dict) containing:
                      - task_id: Task identifier string
                      - code_output: Dict with 'output' and 'stats' fields
-        extract_model: OpenAI model to use for extraction (default: "gpt-5-mini")
+        extract_model: OpenAI model to use for extraction (default: "gpt-5-nano")
         
     Returns:
         Dictionary containing:
@@ -411,32 +412,16 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]],
     """
     
     # Parse ground truth
-    try:
-        if isinstance(ground_truth, str):
-            gt_data = json.loads(ground_truth)
-        else:
-            gt_data = ground_truth
-            
-        task_id = gt_data.get('task_id', 'unknown')
-        code_output = gt_data.get('code_output', {})
-        expected_output = code_output.get('output')
-        expected_stats = code_output.get('stats', {})
+    if isinstance(ground_truth, str):
+        gt_data = json.loads(ground_truth)
+    else:
+        gt_data = ground_truth
         
-    except Exception as e:
-        return {
-            'score': 0.0,
-            'output_match': False,
-            'stats_match': False,
-            'both_match': False,
-            'expected_output': None,
-            'actual_output': None,
-            'expected_stats': None,
-            'actual_stats': None,
-            'task_id': 'unknown',
-            'has_error': True,
-            'error_message': f'Failed to parse ground truth: {str(e)}'
-        }
-    
+    task_id = gt_data['task_id']
+    code_output = gt_data['code_output']
+    expected_output = code_output['output']
+    expected_stats = code_output['stats']
+        
     # Parse model response using OpenAI
     try:
         expected_stats_keys = list(expected_stats.keys()) if expected_stats else []
@@ -461,47 +446,31 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]],
         }
     
     # Compare outputs and stats
-    try:
-        output_match = compare_outputs(expected_output, actual_output)
-        stats_match = compare_stats(expected_stats, actual_stats)
-        both_match = output_match and stats_match
-        
-        # Binary score: 1.0 if both match, 0.0 otherwise
-        score = 1.0 if both_match else 0.0
-        
-        return {
-            'score': score,
-            'output_match': output_match,
-            'stats_match': stats_match,
-            'both_match': both_match,
-            'expected_output': expected_output,
-            'actual_output': actual_output,
-            'expected_stats': expected_stats,
-            'actual_stats': actual_stats,
-            'task_id': task_id,
-            'has_error': False,
-            'error_message': None
-        }
-        
-    except Exception as e:
-        return {
-            'score': 0.0,
-            'output_match': False,
-            'stats_match': False,
-            'both_match': False,
-            'expected_output': expected_output,
-            'actual_output': actual_output,
-            'expected_stats': expected_stats,
-            'actual_stats': actual_stats,
-            'task_id': task_id,
-            'has_error': True,
-            'error_message': f'Failed to compare results: {str(e)}'
-        }
+    output_match = compare_outputs(expected_output, actual_output)
+    stats_match = compare_stats(expected_stats, actual_stats)
+    both_match = output_match and stats_match
+    
+    # Binary score: 1.0 if both match, 0.0 otherwise
+    score = 1.0 if both_match else 0.0
+    
+    return {
+        'score': score,
+        'output_match': output_match,
+        'stats_match': stats_match,
+        'both_match': both_match,
+        'expected_output': expected_output,
+        'actual_output': actual_output,
+        'expected_stats': expected_stats,
+        'actual_stats': actual_stats,
+        'task_id': task_id,
+        'has_error': False,
+        'error_message': None
+    }
 
 
 # Convenience function for testing
 def compute_score_with_details(solution_str: str, ground_truth: Union[str, Dict[str, Any]], 
-                              extract_model: str = "gpt-5-mini") -> Dict[str, Any]:
+                              extract_model: str = "gpt-5-nano") -> Dict[str, Any]:
     """
     Compute score with additional debugging details.
     Same as compute_score but includes extra information for analysis.
