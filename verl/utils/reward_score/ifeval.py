@@ -19,65 +19,14 @@ import os
 import sys
 from typing import Dict, List, Any, Union
 
-# Add the IFEval directory to Python path for imports
-_IFEVAL_PATH = None
-
-def _setup_ifeval_path():
-    """Setup the path to IFEval evaluation code."""
-    global _IFEVAL_PATH
-    if _IFEVAL_PATH is None:
-        # Try to find IFEval in the RLIF_data directory
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        # Navigate up to find RLIF_data/IFEval
-        for _ in range(10):  # Limit search depth
-            rlif_data_path = os.path.join(current_dir, 'RLIF_data', 'IFEval')
-            if os.path.exists(rlif_data_path):
-                _IFEVAL_PATH = rlif_data_path
-                break
-            current_dir = os.path.dirname(current_dir)
-        
-        if _IFEVAL_PATH is None:
-            raise ImportError("Could not find RLIF_data/IFEval directory. Please ensure it exists.")
-        
-        # Add to path but ensure it doesn't override standard library modules
-        if _IFEVAL_PATH not in sys.path:
-            # Insert near the end to avoid conflicts with standard library
-            sys.path.insert(-1, _IFEVAL_PATH)
-
 def _import_ifeval_modules():
-    """Import IFEval evaluation modules."""
-    _setup_ifeval_path()
-    
-    # Temporarily modify sys.path to avoid conflicts
-    original_path = sys.path.copy()
+    """Import IFEval evaluation modules from local utils."""
     try:
-        # Remove the current reward_score directory from path temporarily
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        if current_dir in sys.path:
-            sys.path.remove(current_dir)
-        
-        # Add the parent directory to make IFEval a package
-        global _IFEVAL_PATH
-        if _IFEVAL_PATH:
-            parent_dir = os.path.dirname(_IFEVAL_PATH)
-            if parent_dir not in sys.path:
-                sys.path.insert(0, parent_dir)
-        
-        # Now try importing with the IFEval prefix
-        from IFEval import instructions_registry
-        from IFEval import evaluation_lib
+        from .utils_ifeval import instructions_registry
+        from .utils_ifeval import evaluation_lib
         return instructions_registry, evaluation_lib
     except ImportError as e:
-        # Fallback: try importing without prefix
-        try:
-            import instructions_registry
-            import evaluation_lib
-            return instructions_registry, evaluation_lib
-        except ImportError:
-            raise ImportError(f"Failed to import IFEval modules: {e}")
-    finally:
-        # Restore original path
-        sys.path[:] = original_path
+        raise ImportError(f"Failed to import IFEval modules from utils_ifeval: {e}")
 
 def evaluate_instruction_following(response: str, instruction_ids: List[str], kwargs_list: List[Dict], 
                                  prompt: str = "", strict: bool = True) -> Dict[str, Any]:
@@ -154,7 +103,6 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: boo
             # No instructions to check, return perfect score
             return {
                 'score': 1.0,
-                'acc': True,
                 'follow_all_instructions': True,
                 'follow_instruction_list': [],
                 'num_instructions': 0,
@@ -178,7 +126,6 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: boo
         
         return {
             'score': score,
-            'acc': eval_result['follow_all_instructions'],
             'follow_all_instructions': eval_result['follow_all_instructions'],
             'follow_instruction_list': eval_result['follow_instruction_list'],
             'num_instructions': eval_result['num_instructions'],
@@ -192,7 +139,6 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: boo
         # Return failure score on any error
         return {
             'score': 0.0,
-            'acc': False,
             'error': str(e),
             'follow_all_instructions': False,
             'follow_instruction_list': [],
