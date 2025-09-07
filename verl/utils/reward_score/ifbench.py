@@ -19,52 +19,14 @@ import os
 import sys
 from typing import Dict, List, Any, Union
 
-# Add the IFBench directory to Python path for imports
-_IFBENCH_PATH = None
-
-def _setup_ifbench_path():
-    """Setup the path to IFBench evaluation code."""
-    global _IFBENCH_PATH
-    if _IFBENCH_PATH is None:
-        # Try to find IFBench in the RLIF_data directory
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        # Navigate up to find RLIF_data/IFBench
-        for _ in range(10):  # Limit search depth
-            rlif_data_path = os.path.join(current_dir, 'RLIF_data', 'IFBench')
-            if os.path.exists(rlif_data_path):
-                _IFBENCH_PATH = rlif_data_path
-                break
-            current_dir = os.path.dirname(current_dir)
-        
-        if _IFBENCH_PATH is None:
-            raise ImportError("Could not find RLIF_data/IFBench directory. Please ensure it exists.")
-        
-        # Add to path but ensure it doesn't override standard library modules
-        if _IFBENCH_PATH not in sys.path:
-            # Insert near the end to avoid conflicts with standard library
-            sys.path.insert(-1, _IFBENCH_PATH)
-
 def _import_ifbench_modules():
-    """Import IFBench evaluation modules."""
-    _setup_ifbench_path()
-    
-    # Temporarily modify sys.path to avoid conflicts
-    original_path = sys.path.copy()
+    """Import IFBench evaluation modules from local utils."""
     try:
-        # Remove the current reward_score directory from path temporarily
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        if current_dir in sys.path:
-            sys.path.remove(current_dir)
-        
-        # Import modules
-        import instructions_registry
-        import evaluation_lib
+        from .utils_ifbench import instructions_registry
+        from .utils_ifbench import evaluation_lib
         return instructions_registry, evaluation_lib
     except ImportError as e:
-        raise ImportError(f"Failed to import IFBench modules: {e}")
-    finally:
-        # Restore original path
-        sys.path[:] = original_path
+        raise ImportError(f"Failed to import IFBench modules from utils_ifbench: {e}")
 
 def evaluate_instruction_following(response: str, instruction_ids: List[str], kwargs_list: List[Dict], 
                                  prompt: str = "", strict: bool = True) -> Dict[str, Any]:
@@ -141,7 +103,6 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: boo
             # No instructions to check, return perfect score
             return {
                 'score': 1.0,
-                'acc': True,
                 'follow_all_instructions': True,
                 'follow_instruction_list': [],
                 'num_instructions': 0,
@@ -165,7 +126,6 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: boo
         
         return {
             'score': score,
-            'acc': eval_result['follow_all_instructions'],
             'follow_all_instructions': eval_result['follow_all_instructions'],
             'follow_instruction_list': eval_result['follow_instruction_list'],
             'num_instructions': eval_result['num_instructions'],
@@ -179,7 +139,6 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: boo
         # Return failure score on any error
         return {
             'score': 0.0,
-            'acc': False,
             'error': str(e),
             'follow_all_instructions': False,
             'follow_instruction_list': [],
