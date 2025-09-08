@@ -153,47 +153,39 @@ def openai_inference(conversations: Union[List[List[Dict]], List[Dict]],
     OpenAI inference function for extraction.
     Simplified version of LogicIF's openai_inference.
     """
-    try:
-        from openai import OpenAI
-    except ImportError:
-        # Return error if OpenAI is not available
-        return ['[ERROR]']
+    from openai import OpenAI
     
     if not isinstance(conversations, list):
         conversations = [conversations]
     
     ret = []
-    try:
-        client = OpenAI()
-        
-        for conv in conversations:
-            try:
-                kwargs = dict(
-                    model=model,
-                    messages=conv,
-                    response_format={"type": "json_object"} if return_json else None,
-                )
-                
-                # Add temperature if provided and not a reasoning model
-                if temperature is not None and not any(key in model.lower() for key in ["o3", "o1", "o4-mini", "gpt-5"]):
-                    kwargs["temperature"] = temperature
-                
-                # Remove None values
-                kwargs = {k: v for k, v in kwargs.items() if v is not None}
-                
-                completion = client.chat.completions.create(**kwargs)
-                generation = completion.choices[0].message.content
-                
-            except Exception as e:
-                print(f"Error during OpenAI inference: {str(e)}")
-                generation = '[ERROR]'
-            
-            ret.append(generation)
-            
-    except Exception as e:
-        print(f"Error initializing OpenAI client: {str(e)}")
-        return ['[ERROR]'] * len(conversations)
+    client = OpenAI()
     
+    for conv in conversations:
+        try:
+            kwargs = dict(
+                model=model,
+                messages=conv,
+                response_format={"type": "json_object"} if return_json else None,
+            )
+            
+            # Add temperature if provided and not a reasoning model
+            if temperature is not None and not any(key in model.lower() for key in ["o3", "o1", "o4-mini", "gpt-5"]):
+                kwargs["temperature"] = temperature
+
+            # Remove None values
+            kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
+            completion = client.chat.completions.create(**kwargs)
+            generation = completion.choices[0].message.content
+            
+        except Exception as e:
+            print(f"Error during OpenAI inference: {str(e)}")
+            print(f"Completion: {completion}")
+            generation = '[ERROR]'
+        
+        ret.append(generation)
+        
     return ret
 
 
