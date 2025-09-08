@@ -19,25 +19,41 @@
 
 This guide provides comprehensive documentation for instruction following evaluation in VERL using IFBench and IFEval frameworks. The implementation enables automated evaluation of whether model responses follow specific instructions during reinforcement learning training, providing detailed metrics for both prompt-level and instruction-level performance.
 
-The instruction following reward scoring modules (`ifbench.py` and `ifeval.py`) evaluate whether model responses follow specific instructions and integrate seamlessly with VERL's reward scoring system to provide automated evaluation of instruction adherence during reinforcement learning training.
+The instruction following reward scoring packages (`ifbench/` and `ifeval/`) evaluate whether model responses follow specific instructions and integrate seamlessly with VERL's reward scoring system to provide automated evaluation of instruction adherence during reinforcement learning training.
 
 ## Implementation Details
 
-### Files Created
+### Package Structure
 
-#### 1. `verl/utils/reward_score/ifbench.py`
-- **Purpose**: IFBench instruction following evaluation
+#### 1. `verl/utils/reward_score/ifbench/` Package
+- **Purpose**: IFBench instruction following evaluation package
+- **Structure**:
+  - `__init__.py`: Main package interface with `compute_score()` and `compute_score_loose()` functions
+  - `evaluation.py`: Core evaluation logic and scoring functions
+  - `utils.py`: Utility functions and module import handling
+  - `instructions.py`: IFBench instruction definitions and implementations
+  - `instructions_registry.py`: Registry of available instructions
+  - `evaluation_lib.py`: Low-level evaluation library functions
+  - `instructions_util.py`: Utility functions for instruction processing
 - **Key Features**:
-  - Automatic path discovery for IFBench evaluation code
+  - Modular package structure following VERL patterns
   - Support for both strict and loose evaluation modes
   - Comprehensive error handling
   - Integration with VERL's reward scoring system
   - Returns detailed evaluation metrics
 
-#### 2. `verl/utils/reward_score/ifeval.py`
-- **Purpose**: IFEval instruction following evaluation  
+#### 2. `verl/utils/reward_score/ifeval/` Package
+- **Purpose**: IFEval instruction following evaluation package
+- **Structure**:
+  - `__init__.py`: Main package interface with `compute_score()` and `compute_score_loose()` functions
+  - `evaluation.py`: Core evaluation logic and scoring functions
+  - `utils.py`: Utility functions and module import handling
+  - `instructions.py`: IFEval instruction definitions and implementations
+  - `instructions_registry.py`: Registry of available instructions
+  - `evaluation_lib.py`: Low-level evaluation library functions
+  - `instructions_util.py`: Utility functions for instruction processing
 - **Key Features**:
-  - Automatic path discovery for IFEval evaluation code
+  - Modular package structure following VERL patterns
   - Support for both strict and loose evaluation modes
   - Robust import handling with fallback mechanisms
   - Integration with VERL's reward scoring system
@@ -49,6 +65,24 @@ Added support for new data sources:
 - `"ifeval"` → uses `ifeval.compute_score()`
 
 The integration follows VERL's existing pattern and works seamlessly with the training pipeline.
+
+### Package Organization
+
+Both ifbench and ifeval are now organized as proper Python packages following the same structure as other reward scoring modules in VERL (like `prime_math`, `prime_code`, `sandbox_fusion`). This provides:
+
+- **Clean Imports**: Use `from verl.utils.reward_score.ifbench import compute_score` 
+- **Modular Structure**: Core functionality separated into logical modules
+- **Maintainability**: Easier to extend and maintain the codebase
+- **Consistency**: Follows established VERL patterns for reward functions
+
+Each package contains:
+- **Main Interface** (`__init__.py`): Public API with `compute_score()` functions
+- **Core Logic** (`evaluation.py`): Main evaluation algorithms and scoring logic
+- **Utilities** (`utils.py`): Helper functions and import management
+- **Instructions** (`instructions.py`): Complete instruction definitions and implementations
+- **Registry** (`instructions_registry.py`): Instruction registry and lookup functionality
+- **Evaluation Library** (`evaluation_lib.py`): Low-level evaluation primitives
+- **Instruction Utilities** (`instructions_util.py`): Instruction processing helpers
 
 ## Supported Datasets
 
@@ -123,16 +157,18 @@ score = default_compute_score("logicifeval-mini", response, ground_truth_logicif
 print(score)  # {'score': 1.0, 'both_match': True, 'output_match': True, 'stats_match': True, ...}
 ```
 
-### Direct Module Usage
+### Direct Package Usage
 
 ```python
-from verl.utils.reward_score import ifbench, ifeval, logicifmini
+from verl.utils.reward_score.ifbench import compute_score as ifbench_compute_score
+from verl.utils.reward_score.ifeval import compute_score as ifeval_compute_score
+from verl.utils.reward_score import logicifmini
 
 # Direct IFBench usage
-result = ifbench.compute_score(response, ground_truth, strict=True)
+result = ifbench_compute_score(response, ground_truth, strict=True)
 
 # Direct IFEval usage  
-result = ifeval.compute_score(response, ground_truth, strict=False)  # loose evaluation
+result = ifeval_compute_score(response, ground_truth, strict=False)  # loose evaluation
 
 # Direct LogicIF Mini usage (default gpt-5-mini)
 result = logicifmini.compute_score(response, ground_truth)
@@ -292,10 +328,10 @@ Successfully implemented and tested instruction following evaluation for both IF
 
 ### Key Features
 
-#### 1. **Automatic Path Discovery**
-- Both modules automatically locate IFBench and IFEval evaluation code in the `RLIF_data` directory
-- No manual path configuration required
-- Robust search algorithm that traverses the directory tree
+#### 1. **Modular Package Structure**
+- Both packages organize evaluation code into logical modules following VERL patterns
+- Direct imports from package modules (instructions_registry, evaluation_lib)
+- Clean separation of concerns with dedicated modules for different functionality
 
 #### 2. **Dual Evaluation Modes**
 - **Strict Mode**: Evaluates response exactly as provided
