@@ -102,13 +102,13 @@ def default_compute_score(
 
         res = search_r1_like_qa_em.compute_score(solution_str, ground_truth)
     elif data_source == "ifbench":
-        from . import ifbench
+        from .ifbench import compute_score as ifbench_compute_score
 
-        res = ifbench.compute_score(solution_str, ground_truth)
+        res = ifbench_compute_score(solution_str, ground_truth)
     elif data_source == "ifeval":
-        from . import ifeval
+        from .ifeval import compute_score as ifeval_compute_score
 
-        res = ifeval.compute_score(solution_str, ground_truth)
+        res = ifeval_compute_score(solution_str, ground_truth)
     elif data_source == "logicifeval-mini":
         from . import logicifmini
 
