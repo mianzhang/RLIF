@@ -57,7 +57,7 @@ def match_ground_truth_with_responses(ground_truth_data: List[Dict[str, Any]],
                                     prompt_to_response: Dict[str, str]) -> List[Dict[str, Any]]:
     """Match ground truth data with model responses by prompt."""
     matched_data = []
-    
+
     for gt_item in ground_truth_data:
         prompt = gt_item.get('prompt', '')
         if prompt in prompt_to_response:
@@ -101,7 +101,7 @@ def evaluate_single_response(response: Dict[str, Any], framework: str, strict: b
         }
         
         # Compute score using the specified framework
-        result = compute_func(solution_str, ground_truth, strict=strict)
+        result = compute_func(solution_str, ground_truth, strict=strict, return_verl_reward=False)
         
         # Add additional info for analysis
         result['prompt'] = response.get('prompt', '')
