@@ -16,8 +16,31 @@
 
 import json
 from typing import Dict, List, Any, Union
+import re
 
 from .utils import import_ifeval_modules, MockInputExample
+
+
+def remove_think_tags(text: str) -> str:
+    """
+    Remove <think>...</think> tags from the text.
+    
+    Args:
+        text: Input text that may contain <think>...</think> tags
+        
+    Returns:
+        Text with <think>...</think> sections removed
+    """
+    # Use regex to remove <think>...</think> tags and their content
+    # This handles multiline content and is case-insensitive
+    pattern = r'<think>.*?</think>'
+    cleaned_text = re.sub(pattern, '', text, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Clean up any extra whitespace that might be left
+    cleaned_text = re.sub(r'\n\s*\n', '\n\n', cleaned_text)  # Replace multiple newlines with double newlines
+    cleaned_text = cleaned_text.strip()
+    
+    return cleaned_text
 
 
 def evaluate_instruction_following(response: str, instruction_ids: List[str], kwargs_list: List[Dict], 
@@ -61,7 +84,7 @@ def evaluate_instruction_following(response: str, instruction_ids: List[str], kw
     }
 
 
-def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], strict: bool = True) -> Dict[str, Any]:
+def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], strict: bool = True, return_verl_reward: bool = True) -> Dict[str, Any]:
     """
     Internal function to compute the IFEval instruction following score.
     
@@ -74,6 +97,9 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
         Dictionary containing the score and evaluation details
     """
     try:
+        # Remove <think>...</think> tags from the solution
+        cleaned_solution = remove_think_tags(solution_str)
+        
         # Parse ground truth if it's a string
         if isinstance(ground_truth, str):
             gt_data = json.loads(ground_truth)
@@ -97,9 +123,9 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
                 'evaluation_mode': 'strict' if strict else 'loose'
             }
         
-        # Evaluate instruction following
+        # Evaluate instruction following using cleaned solution
         eval_result = evaluate_instruction_following(
-            response=solution_str,
+            response=cleaned_solution,
             instruction_ids=instruction_ids,
             kwargs_list=kwargs_list,
             prompt=prompt,
@@ -110,7 +136,15 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
         # Use binary score: 1.0 if all instructions followed, 0.0 otherwise
         score = 1.0 if eval_result['follow_all_instructions'] else 0.0
         
-        return {
+        if return_verl_reward:
+            return {
+                'score': score,
+                'num_instructions': eval_result['num_instructions'],
+                'num_followed': eval_result['num_followed'],
+                'has_error': False
+            }
+        else:
+            return {
             'score': score,
             'follow_all_instructions': eval_result['follow_all_instructions'],
             'follow_instruction_list': eval_result['follow_instruction_list'],
@@ -118,12 +152,21 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
             'num_followed': eval_result['num_followed'],
             'accuracy': eval_result['accuracy'],
             'evaluation_mode': 'strict' if strict else 'loose',
-            'instruction_ids': instruction_ids
+            'instruction_ids': instruction_ids,
+            'has_error': False
         }
         
     except Exception as e:
         # Return failure score on any error
-        return {
+        if return_verl_reward:
+            return {
+                'score': 0.0,
+                'num_instructions': 0,
+                'num_followed': 0,
+                'has_error': True
+            }
+        else:
+            return {
             'score': 0.0,
             'error': str(e),
             'follow_all_instructions': False,
@@ -131,5 +174,6 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
             'num_instructions': 0,
             'num_followed': 0,
             'accuracy': 0.0,
-            'evaluation_mode': 'strict' if strict else 'loose'
+            'evaluation_mode': 'strict' if strict else 'loose',
+            'has_error': True
         } 

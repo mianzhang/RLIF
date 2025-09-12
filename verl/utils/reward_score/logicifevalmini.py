@@ -9,7 +9,30 @@ Uses OpenAI models (default: gpt-5-mini) for structured extraction.
 
 import json
 import time
+import re
 from typing import Dict, Any, Union, Optional, Tuple, List
+
+
+def remove_think_tags(text: str) -> str:
+    """
+    Remove <think>...</think> tags from the text.
+    
+    Args:
+        text: Input text that may contain <think>...</think> tags
+        
+    Returns:
+        Text with <think>...</think> sections removed
+    """
+    # Use regex to remove <think>...</think> tags and their content
+    # This handles multiline content and is case-insensitive
+    pattern = r'<think>.*?</think>'
+    cleaned_text = re.sub(pattern, '', text, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Clean up any extra whitespace that might be left
+    cleaned_text = re.sub(r'\n\s*\n', '\n\n', cleaned_text)  # Replace multiple newlines with double newlines
+    cleaned_text = cleaned_text.strip()
+    
+    return cleaned_text
 
 
 def analyze_output_format(output_value):
@@ -377,7 +400,7 @@ def compare_stats(expected: Dict[str, Any], actual: Dict[str, Any]) -> bool:
 
 
 def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]], 
-                 extract_model: str = "gpt-5-nano") -> Dict[str, Any]:
+                 extract_model: str = "gpt-5-nano", return_verl_reward: bool = True) -> Dict[str, Any]:
     """
     Compute LogicIF reward score by comparing model output with expected results.
     
@@ -403,39 +426,49 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]],
         - error_message: Error details if has_error is True
     """
     
+    # Remove <think>...</think> tags from the solution
+    cleaned_solution = remove_think_tags(solution_str)
+    
     # Parse ground truth
     if isinstance(ground_truth, str):
         gt_data = json.loads(ground_truth)
     else:
         gt_data = ground_truth
         
-    task_id = gt_data['task_id']
     code_output = gt_data['code_output']
     expected_output = code_output['output']
     expected_stats = code_output['stats']
         
-    # Parse model response using OpenAI
+    # Parse model response using OpenAI with cleaned solution
     try:
         expected_stats_keys = list(expected_stats.keys()) if expected_stats else []
-        parsed_response = parse_model_response(solution_str, expected_stats_keys, extract_model, expected_output)
+        parsed_response = parse_model_response(cleaned_solution, expected_stats_keys, extract_model, expected_output)
         
         actual_output = parsed_response['output']
         actual_stats = parsed_response['stats']
         
     except Exception as e:
-        return {
-            'score': 0.0,
-            'output_match': False,
-            'stats_match': False,
-            'both_match': False,
-            'expected_output': expected_output,
-            'actual_output': None,
-            'expected_stats': expected_stats,
-            'actual_stats': None,
-            'task_id': task_id,
-            'has_error': True,
-            'error_message': f'Failed to parse model response: {str(e)}'
-        }
+        if return_verl_reward:
+            return {
+                'score': 0.0,
+                'output_match': False,
+                'stats_match': False,
+                'both_match': False,
+                'has_error': True
+            }
+        else:
+            return {
+                'score': 0.0,
+                'output_match': False,
+                'stats_match': False,
+                'both_match': False,
+                'expected_output': expected_output,
+                'actual_output': None,
+                'expected_stats': expected_stats,
+                'actual_stats': None,
+                'has_error': True,
+                'error_message': f'Failed to parse model response: {str(e)}'
+            }
     
     # Compare outputs and stats
     output_match = compare_outputs(expected_output, actual_output)
@@ -445,19 +478,27 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]],
     # Binary score: 1.0 if both match, 0.0 otherwise
     score = 1.0 if both_match else 0.0
     
-    return {
-        'score': score,
-        'output_match': output_match,
-        'stats_match': stats_match,
-        'both_match': both_match,
-        'expected_output': expected_output,
-        'actual_output': actual_output,
-        'expected_stats': expected_stats,
-        'actual_stats': actual_stats,
-        'task_id': task_id,
-        'has_error': False,
-        'error_message': None
-    }
+    if return_verl_reward:
+        return {
+            'score': score,
+            'output_match': output_match,
+            'stats_match': stats_match,
+            'both_match': both_match,
+            'has_error': False
+        }
+    else:
+        return {
+            'score': score,
+            'output_match': output_match,
+            'stats_match': stats_match,
+            'both_match': both_match,
+            'expected_output': expected_output,
+            'actual_output': actual_output,
+            'expected_stats': expected_stats,
+            'actual_stats': actual_stats,
+            'has_error': False,
+            'error_message': None
+        }
 
 
 # Convenience function for testing
@@ -470,7 +511,7 @@ def compute_score_with_details(solution_str: str, ground_truth: Union[str, Dict[
     result = compute_score(solution_str, ground_truth, extract_model=extract_model)
     
     # Add additional debugging info
-    result['evaluation_type'] = 'logicifeval_mini'
+    result['evaluation_type'] = 'logicifevalmini'
     result['requires_both_match'] = True
     result['extraction_method'] = 'openai'
     
