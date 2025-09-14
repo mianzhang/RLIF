@@ -1,3 +1,5 @@
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
+
 """
 LogicIF Mini reward scoring module for VERL.
 

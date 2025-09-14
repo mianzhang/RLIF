@@ -14,8 +14,6 @@
 
 """IFEval instruction following evaluation package for VERL reward scoring."""
 
-import json
-import os
 from typing import Dict, List, Any, Union
 
 from .evaluation import evaluate_instruction_following, compute_score_internal

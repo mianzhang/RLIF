@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
 """
 Quick script to check token lengths for parquet files.
 Simplified version for fast analysis.
