@@ -197,7 +197,8 @@ def print_results(stats: Dict[str, Any], model_name: str):
     print(f"\n🎯 Overall Performance:")
     print(f"   Average Score: {stats['average_score']:.4f}")
     print(f"   Prompt-Level Accuracy: {stats['prompt_level_accuracy']:.4f} ({stats['prompt_level_accuracy']*100:.2f}%)")
-    print(f"   Instruction-Level Accuracy: {stats['instruction_level_accuracy']:.4f} ({stats['instruction_level_accuracy']*100:.2f}%)")
+    inst_accuracy = stats['instruction_level_accuracy']
+    print(f"   Instruction-Level Accuracy: {inst_accuracy:.4f} ({inst_accuracy*100:.2f}%)")
     print(f"   Instructions Followed: {stats['total_followed']}/{stats['total_instructions']}")
     
     # Show distribution by instruction count
@@ -350,7 +351,8 @@ def main():
     
     # Determine model name from input file if not specified
     if args.model_name is None:
-        model_name = os.path.basename(args.input_file).split('.')[0] if '.' in os.path.basename(args.input_file) else 'unknown'
+        basename = os.path.basename(args.input_file)
+        model_name = basename.split('.')[0] if '.' in basename else 'unknown'
     else:
         model_name = args.model_name
     
@@ -433,12 +435,17 @@ def main():
     
     # Print summary
     print(f"\n🎉 Evaluation complete!")
-    print(f"📈 {model_name.upper()} achieved {stats['prompt_level_accuracy']*100:.2f}% prompt-level accuracy on {args.framework.upper()} ({evaluation_mode} mode)")
-    print(f"📊 Instruction-level accuracy: {stats['instruction_level_accuracy']*100:.2f}%")
+    prompt_acc = stats['prompt_level_accuracy'] * 100
+    inst_acc = stats['instruction_level_accuracy'] * 100
+    framework_upper = args.framework.upper()
+    print(f"📈 {model_name.upper()} achieved {prompt_acc:.2f}% prompt-level accuracy on {framework_upper} ({evaluation_mode} mode)")
+    print(f"📊 Instruction-level accuracy: {inst_acc:.2f}%")
     
     if args.quiet:
         # In quiet mode, print just the key metrics
-        print(f"Results: {stats['prompt_level_accuracy']:.4f} prompt accuracy, {stats['instruction_level_accuracy']:.4f} instruction accuracy")
+        prompt_acc_val = stats['prompt_level_accuracy']
+        inst_acc_val = stats['instruction_level_accuracy']
+        print(f"Results: {prompt_acc_val:.4f} prompt accuracy, {inst_acc_val:.4f} instruction accuracy")
 
 
 if __name__ == "__main__":
