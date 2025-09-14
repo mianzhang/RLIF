@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
+
 """
 Evaluation script for model performance on LogicIF Mini benchmark.
 Uses parallel OpenAI API calls for structured data extraction and scoring.

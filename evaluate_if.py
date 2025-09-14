@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
+
 """
 Unified evaluation script for instruction following benchmarks (IFBench and IFEval).
 Evaluates instruction following capabilities using both strict and loose evaluation modes.

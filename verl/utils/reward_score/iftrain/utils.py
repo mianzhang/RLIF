@@ -1,3 +1,5 @@
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
+
 """Utility functions for IFTrain."""
 
 import importlib.util
