@@ -129,3 +129,7 @@ outputs
 
 
 RLIF_data/
+benchmark/
+verl_data/
+eval_res/
+nohup.out
