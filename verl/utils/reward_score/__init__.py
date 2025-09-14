@@ -101,6 +101,11 @@ def default_compute_score(
         from . import search_r1_like_qa_em
 
         res = search_r1_like_qa_em.compute_score(solution_str, ground_truth)
+    
+    elif data_source == "iftrain":
+        from .iftrain import compute_score as iftrain_compute_score
+
+        res = iftrain_compute_score(solution_str, ground_truth)
     elif data_source == "ifbench":
         from .ifbench import compute_score as ifbench_compute_score
 
@@ -109,10 +114,10 @@ def default_compute_score(
         from .ifeval import compute_score as ifeval_compute_score
 
         res = ifeval_compute_score(solution_str, ground_truth)
-    elif data_source == "logicifeval-mini":
-        from . import logicifmini
+    elif data_source == "logicifevalmini":
+        from . import logicifevalmini
 
-        res = logicifmini.compute_score(solution_str, ground_truth)
+        res = logicifevalmini.compute_score(solution_str, ground_truth)
 
     else:
         raise NotImplementedError(f"Reward function is not implemented for {data_source=}")

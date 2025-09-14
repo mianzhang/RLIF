@@ -1,11 +1,11 @@
-"""Utility functions for IFBench evaluation."""
+"""Utility functions for IFTrain."""
 
 import importlib.util
 import os
 
 
-def import_ifbench_modules():
-    """Import IFBench evaluation modules from the package."""
+def import_iftrain_modules():
+    """Import IFTrain evaluation modules from the package."""
     try:
         # Import modules directly from the package
         from . import instructions_registry
@@ -14,11 +14,11 @@ def import_ifbench_modules():
         return instructions_registry, evaluation_lib
 
     except ImportError as e:
-        raise ImportError(f"Failed to import IFBench modules: {e}")
+        raise ImportError(f"Failed to import IFTrain modules: {e}")
 
 
 class MockInputExample:
-    """Mock InputExample class for IFBench evaluation."""
+    """Mock InputExample class for IFTrain evaluation."""
     
     def __init__(self, instruction_id_list, kwargs, prompt=""):
         self.instruction_id_list = instruction_id_list

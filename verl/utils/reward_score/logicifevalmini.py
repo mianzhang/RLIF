@@ -10,6 +10,7 @@ Uses OpenAI models (default: gpt-5-mini) for structured extraction.
 import json
 import time
 import re
+import random
 from typing import Dict, Any, Union, Optional, Tuple, List
 
 
@@ -425,7 +426,7 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]],
         - has_error: Whether there was an error during evaluation
         - error_message: Error details if has_error is True
     """
-    
+    print("Compute score for LogicIF Mini!!!!!!!") 
     # Remove <think>...</think> tags from the solution
     cleaned_solution = remove_think_tags(solution_str)
     
@@ -451,9 +452,6 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]],
         if return_verl_reward:
             return {
                 'score': 0.0,
-                'output_match': False,
-                'stats_match': False,
-                'both_match': False,
                 'has_error': True
             }
         else:
@@ -478,12 +476,20 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict[str, Any]],
     # Binary score: 1.0 if both match, 0.0 otherwise
     score = 1.0 if both_match else 0.0
     
+    if random.random() < 0.05:
+        print(f"Score: {score}")
+        print(f"Output Match: {output_match}")
+        print(f"Stats Match: {stats_match}")
+        print(f"Both Match: {both_match}")
+        print(f"Expected Output: {expected_output}")
+        print(f"Actual Output: {actual_output}")
+        print(f"Expected Stats: {expected_stats}")
+        print(f"Solution: {solution_str}")
+        print(f"Cleaned Solution: {cleaned_solution}")
+
     if return_verl_reward:
         return {
             'score': score,
-            'output_match': output_match,
-            'stats_match': stats_match,
-            'both_match': both_match,
             'has_error': False
         }
     else:

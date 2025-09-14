@@ -17,6 +17,7 @@
 import json
 from typing import Dict, List, Any, Union
 import re
+import random
 
 from .utils import import_ifbench_modules, MockInputExample
 
@@ -107,28 +108,17 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
             gt_data = ground_truth
             
         # Extract instruction information
-        instruction_ids = gt_data.get('instruction_ids', [])
-        kwargs_list = gt_data.get('kwargs', [])
-        prompt = gt_data.get('prompt', '')
+        instruction_ids = gt_data['instruction_ids']
+        kwargs_list = gt_data['kwargs']
         
         if not instruction_ids:
-            # No instructions to check, return perfect score
-            return {
-                'score': 1.0,
-                'follow_all_instructions': True,
-                'follow_instruction_list': [],
-                'num_instructions': 0,
-                'num_followed': 0,
-                'accuracy': 1.0,
-                'evaluation_mode': 'strict' if strict else 'loose'
-            }
+            raise ValueError("No instructions to check")
         
         # Evaluate instruction following using cleaned solution
         eval_result = evaluate_instruction_following(
             response=cleaned_solution,
             instruction_ids=instruction_ids,
             kwargs_list=kwargs_list,
-            prompt=prompt,
             strict=strict
         )
         
@@ -136,11 +126,15 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
         # Use binary score: 1.0 if all instructions followed, 0.0 otherwise
         score = 1.0 if eval_result['follow_all_instructions'] else 0.0
         
+        if random.random() < 0.05:
+            print(f"Score: {score}")
+            print(f"Instruction IDs: {instruction_ids}")
+            print(f"Solution: {solution_str}")
+            print(f"Cleaned Solution: {cleaned_solution}")
+        
         if return_verl_reward:
             return {
                 'score': score,
-                'num_instructions': eval_result['num_instructions'],
-                'num_followed': eval_result['num_followed'],
                 'has_error': False
             }
         else:
@@ -157,12 +151,11 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
             }
         
     except Exception as e:
+        print(f"IFBench Reward Score Error: {e}")
         # Return failure score on any error
         if return_verl_reward:
             return {
                 'score': 0.0,
-                'num_instructions': 0,
-                'num_followed': 0,
                 'has_error': True
             }
         else:

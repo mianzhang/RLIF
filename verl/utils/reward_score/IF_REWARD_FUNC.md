@@ -101,7 +101,7 @@ Each package contains:
 - **Performance**: Generally higher success rates, more reliable evaluation
 
 ### LogicIF Mini
-- **Data source identifier**: `"logicifeval-mini"`
+- **Data source identifier**: `"logicifevalmini"`
 - **Description**: LogicIF evaluates manual function execution and algorithmic reasoning capabilities
 - **Evaluation types**: Exact matching of both output and execution statistics
 - **Instructions**: Step-by-step algorithmic execution with precise output and statistics tracking
@@ -162,7 +162,7 @@ print(score)  # {'score': 1.0, 'both_match': True, 'output_match': True, 'stats_
 ```python
 from verl.utils.reward_score.ifbench import compute_score as ifbench_compute_score
 from verl.utils.reward_score.ifeval import compute_score as ifeval_compute_score
-from verl.utils.reward_score import logicifmini
+from verl.utils.reward_score import logicifevalmini
 
 # Direct IFBench usage
 result = ifbench_compute_score(response, ground_truth, strict=True)
@@ -171,10 +171,10 @@ result = ifbench_compute_score(response, ground_truth, strict=True)
 result = ifeval_compute_score(response, ground_truth, strict=False)  # loose evaluation
 
 # Direct LogicIF Mini usage (default gpt-5-mini)
-result = logicifmini.compute_score(response, ground_truth)
+result = logicifevalmini.compute_score(response, ground_truth)
 
 # Direct LogicIF Mini usage (with custom model)
-result = logicifmini.compute_score(response, ground_truth, extract_model="gpt-4o")
+result = logicifevalmini.compute_score(response, ground_truth, extract_model="gpt-4o")
 ```
 
 ### Ground Truth Format

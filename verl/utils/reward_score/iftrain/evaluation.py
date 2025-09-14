@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Core evaluation functions for IFEval instruction following."""
+"""Core evaluation functions for IFTrain instruction following."""
 
 import json
 from typing import Dict, List, Any, Union
 import re
 import random
 
-from .utils import import_ifeval_modules, MockInputExample
+from .utils import import_iftrain_modules, MockInputExample
 
 
 def remove_think_tags(text: str) -> str:
@@ -59,7 +59,7 @@ def evaluate_instruction_following(response: str, instruction_ids: List[str], kw
     Returns:
         Dictionary containing evaluation results
     """
-    instructions_registry, evaluation_lib = import_ifeval_modules()
+    instructions_registry, evaluation_lib = import_iftrain_modules()
     
     # Create mock input
     inp = MockInputExample(instruction_ids, kwargs_list, prompt)
@@ -87,7 +87,7 @@ def evaluate_instruction_following(response: str, instruction_ids: List[str], kw
 
 def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], strict: bool = True, return_verl_reward: bool = True) -> Dict[str, Any]:
     """
-    Internal function to compute the IFEval instruction following score.
+    Internal function to compute the IFTrain instruction following score.
     
     Args:
         solution_str: The model's response to evaluate
@@ -108,9 +108,8 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
             gt_data = ground_truth
             
         # Extract instruction information
-        instruction_ids = gt_data.get('instruction_ids', [])
-        kwargs_list = gt_data.get('kwargs', [])
-        prompt = gt_data.get('prompt', '')
+        instruction_ids = gt_data['instruction_ids']
+        kwargs_list = gt_data['kwargs']
         
         if not instruction_ids:
             raise ValueError("No instructions to check")
@@ -120,20 +119,19 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
             response=cleaned_solution,
             instruction_ids=instruction_ids,
             kwargs_list=kwargs_list,
-            prompt=prompt,
             strict=strict
         )
-
+        
         # Calculate score
         # Use binary score: 1.0 if all instructions followed, 0.0 otherwise
         score = 1.0 if eval_result['follow_all_instructions'] else 0.0
-
+        
         if random.random() < 0.05:
             print(f"Score: {score}")
             print(f"Instruction IDs: {instruction_ids}")
             print(f"Solution: {solution_str}")
             print(f"Cleaned Solution: {cleaned_solution}")
-
+        
         if return_verl_reward:
             return {
                 'score': score,
@@ -141,19 +139,19 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
             }
         else:
             return {
-            'score': score,
-            'follow_all_instructions': eval_result['follow_all_instructions'],
-            'follow_instruction_list': eval_result['follow_instruction_list'],
-            'num_instructions': eval_result['num_instructions'],
-            'num_followed': eval_result['num_followed'],
-            'accuracy': eval_result['accuracy'],
-            'evaluation_mode': 'strict' if strict else 'loose',
-            'instruction_ids': instruction_ids,
-            'has_error': False
-        }
+                'score': score,
+                'follow_all_instructions': eval_result['follow_all_instructions'],
+                'follow_instruction_list': eval_result['follow_instruction_list'],
+                'num_instructions': eval_result['num_instructions'],
+                'num_followed': eval_result['num_followed'],
+                'accuracy': eval_result['accuracy'],
+                'evaluation_mode': 'strict' if strict else 'loose',
+                'instruction_ids': instruction_ids,
+                'has_error': False
+            }
         
     except Exception as e:
-        print(f"IFEval Reward Score Error: {e}")
+        print(f"IFTrain Reward Score Error: {e}")
         # Return failure score on any error
         if return_verl_reward:
             return {
@@ -162,13 +160,13 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
             }
         else:
             return {
-            'score': 0.0,
-            'error': str(e),
-            'follow_all_instructions': False,
-            'follow_instruction_list': [],
-            'num_instructions': 0,
-            'num_followed': 0,
-            'accuracy': 0.0,
-            'evaluation_mode': 'strict' if strict else 'loose',
-            'has_error': True
-        } 
+                'score': 0.0,
+                'error': str(e),
+                'follow_all_instructions': False,
+                'follow_instruction_list': [],
+                'num_instructions': 0,
+                'num_followed': 0,
+                'accuracy': 0.0,
+                'evaluation_mode': 'strict' if strict else 'loose',
+                'has_error': True
+            } 
