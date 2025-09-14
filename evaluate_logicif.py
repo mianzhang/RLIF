@@ -96,7 +96,9 @@ def evaluate_single_response(response: Dict[str, Any], extract_model: str = "gpt
         
     except Exception as e:
         # Use thread-safe print for parallel execution
-        safe_print(f"Error evaluating response for {response.get('task_id', 'unknown')}-{response.get('test_case_id', 'unknown')}: {e}")
+        task_id = response.get('task_id', 'unknown')
+        test_case_id = response.get('test_case_id', 'unknown')
+        safe_print(f"Error evaluating response for {task_id}-{test_case_id}: {e}")
         return {
             'score': 0.0,
             'output_match': False,
@@ -201,11 +203,17 @@ def print_results(stats: Dict[str, Any]):
     
     print(f"\n🏆 Top 5 Performing Tasks:")
     for i, (task_id, task_stats) in enumerate(sorted_tasks[:5]):
-        print(f"   {i+1}. {task_id}: {task_stats['task_accuracy']:.4f} ({task_stats['perfect_cases']}/{task_stats['total_cases']})")
+        accuracy = task_stats['task_accuracy']
+        perfect = task_stats['perfect_cases']
+        total = task_stats['total_cases']
+        print(f"   {i+1}. {task_id}: {accuracy:.4f} ({perfect}/{total})")
     
     print(f"\n📉 Bottom 5 Performing Tasks:")
     for i, (task_id, task_stats) in enumerate(sorted_tasks[-5:]):
-        print(f"   {i+1}. {task_id}: {task_stats['task_accuracy']:.4f} ({task_stats['perfect_cases']}/{task_stats['total_cases']})")
+        accuracy = task_stats['task_accuracy']
+        perfect = task_stats['perfect_cases']
+        total = task_stats['total_cases']
+        print(f"   {i+1}. {task_id}: {accuracy:.4f} ({perfect}/{total})")
 
 
 def save_detailed_results(results: List[Dict[str, Any]], stats: Dict[str, Any], 
@@ -325,7 +333,8 @@ def main():
     
     # Determine model name from input file if not specified
     if args.model_name is None:
-        model_name = os.path.basename(args.input_file).split('-')[0] if '-' in os.path.basename(args.input_file) else 'unknown'
+        basename = os.path.basename(args.input_file)
+        model_name = basename.split('-')[0] if '-' in basename else 'unknown'
     else:
         model_name = args.model_name
     
