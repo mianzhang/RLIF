@@ -118,6 +118,10 @@ def default_compute_score(
         from . import logicifevalmini
 
         res = logicifevalmini.compute_score(solution_str, ground_truth)
+    elif data_source == "infobench":
+        from . import infobench
+
+        res = infobench.compute_score(solution_str, ground_truth)
 
     else:
         raise NotImplementedError(f"Reward function is not implemented for {data_source=}")
