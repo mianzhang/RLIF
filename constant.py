@@ -40,3 +40,8 @@ class LOGICIFEVALMINI:
     nickname = "logicifevalmini"
     input_key = 'instruction' 
     prompt_path = "benchmark/logicifevalmini.jsonl"
+
+class INFORBENCH:
+    nickname = "infobench"
+    input_key = "instruction"
+    prompt_path = "benchmark/infobench.jsonl"

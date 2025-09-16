@@ -132,4 +132,5 @@ RLIF_data/
 benchmark/
 verl_data/
 eval_res/
+test.sh
 nohup.out

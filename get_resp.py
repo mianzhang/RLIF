@@ -6,11 +6,11 @@ from constant import *
 
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 
 for model in [QWEN3_8B]:
-    for benchmark in [IFEVAL, IFBENCH, LOGICIFEVALMINI]:
+    for benchmark in [INFORBENCH]:
         llminfer.process_jsonl(
             benchmark.prompt_path,
             f'eval_res/{benchmark.nickname}-{model.nickname}.jsonl',
