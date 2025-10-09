@@ -26,21 +26,25 @@ class QWEN3_8B:
 
 
 
+@dataclass
 class IFBENCH:
     nickname = "ifbench"
     input_key = "prompt"
     prompt_path = "benchmark/ifbench.jsonl"
 
+@dataclass
 class IFEVAL:
     nickname = "ifeval"
     input_key = "prompt"
     prompt_path = "benchmark/ifeval.jsonl"
 
+@dataclass
 class LOGICIFEVALMINI:
     nickname = "logicifevalmini"
     input_key = 'instruction' 
     prompt_path = "benchmark/logicifevalmini.jsonl"
 
+@dataclass
 class INFORBENCH:
     nickname = "infobench"
     input_key = "instruction"
