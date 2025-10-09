@@ -128,7 +128,6 @@ outputs
 .history
 
 
-RLIF_data/
 benchmark/
 verl_data/
 eval_res/
