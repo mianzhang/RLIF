@@ -1,11 +1,12 @@
 # Copyright 2024 Bytedance Ltd. and/or its affiliates
 
 """
-Evaluation script for model performance on LogicIF Mini benchmark.
-Uses parallel OpenAI API calls for structured data extraction and scoring.
+Evaluation script for model performance on LogicIF benchmark.
+Uses fast rule-based JSON parsing (jsonparse) for structured data extraction and scoring.
 
 Supports any model's responses in the LogicIF JSONL format and provides
 comprehensive evaluation metrics including task-level and instance-level accuracy.
+No external API calls required - evaluation runs completely locally.
 """
 
 import json
@@ -14,38 +15,12 @@ import os
 import argparse
 from typing import List, Dict, Any
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
 
 # Add the specific module path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'verl', 'utils', 'reward_score'))
 
 # Import the LogicIF module directly
-import logicifmini
-
-# Thread-safe printing
-print_lock = threading.Lock()
-
-def safe_print(*args, **kwargs):
-    """Thread-safe print function."""
-    with print_lock:
-        print(*args, **kwargs)
-
-
-def load_config(config_file: str = './config.json'):
-    """Load OpenAI API key from config.json."""
-    try:
-        with open(config_file, 'r') as f:
-            config = json.load(f)
-        
-        # Set OpenAI API key
-        os.environ['OPENAI_API_KEY'] = config['OPENAI_API_KEY']
-        print(f"✅ OpenAI API key loaded from {config_file}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Failed to load config from {config_file}: {e}")
-        return False
+import logicif
 
 
 def load_model_responses(file_path: str) -> List[Dict[str, Any]]:
@@ -72,11 +47,11 @@ def load_model_responses(file_path: str) -> List[Dict[str, Any]]:
         return []
 
 
-def evaluate_single_response(response: Dict[str, Any], extract_model: str = "gpt-5-nano") -> Dict[str, Any]:
-    """Evaluate a single model response using LogicIF Mini scoring."""
+def evaluate_single_response(response: Dict[str, Any]) -> Dict[str, Any]:
+    """Evaluate a single model response using LogicIF scoring with fast rule-based parsing."""
     try:
         # Extract the model's response text (solution_str)
-        solution_str = response.get('llm_response', '')
+        solution_str = response['response']
         
         # Extract the ground truth (code_output field with task_id)
         task_id = f"{response['task_id']}-{response['test_case_id']}"
@@ -85,21 +60,18 @@ def evaluate_single_response(response: Dict[str, Any], extract_model: str = "gpt
             'code_output': response['code_output']
         }
         
-        # Compute score using LogicIF Mini
-        result = logicifmini.compute_score(solution_str, ground_truth, extract_model=extract_model)
+        # Compute score using LogicIF (rule-based JSON parsing)
+        result = logicif.compute_score(solution_str, ground_truth, return_verl_reward=False)
         
         # Add additional info for analysis
         result['task_id'] = response['task_id']
         result['test_case_id'] = response['test_case_id']
-        result['model_used'] = response.get('model_used', 'gpt_5')
         
         return result
         
     except Exception as e:
-        # Use thread-safe print for parallel execution
-        task_id = response.get('task_id', 'unknown')
-        test_case_id = response.get('test_case_id', 'unknown')
-        safe_print(f"Error evaluating response for {task_id}-{test_case_id}: {e}")
+        task_id = response['task_id']
+        test_case_id = response['test_case_id']
         return {
             'score': 0.0,
             'output_match': False,
@@ -107,9 +79,8 @@ def evaluate_single_response(response: Dict[str, Any], extract_model: str = "gpt
             'both_match': False,
             'has_error': True,
             'error_message': str(e),
-            'task_id': response.get('task_id', 'unknown'),
-            'test_case_id': response.get('test_case_id', 'unknown'),
-            'model_used': response.get('model_used', 'gpt_5')
+            'task_id': response['task_id'],
+            'test_case_id': response['test_case_id'],
         }
 
 
@@ -176,10 +147,10 @@ def calculate_statistics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def print_results(stats: Dict[str, Any]):
+def print_results(stats: Dict[str, Any], model_name: str = "Model"):
     """Print formatted evaluation results."""
     print("\n" + "=" * 80)
-    print("GPT-5 Performance on LogicIF Mini")
+    print(f"{model_name.upper()} Performance on LogicIF")
     print("=" * 80)
     
     print(f"📊 Dataset Overview:")
@@ -218,16 +189,15 @@ def print_results(stats: Dict[str, Any]):
 
 
 def save_detailed_results(results: List[Dict[str, Any]], stats: Dict[str, Any], 
-                         output_file: str, model_name: str = 'gpt_5', 
-                         extraction_model: str = 'gpt-5-nano'):
+                         output_file: str, model_name: str = 'unknown_model'):
     """Save detailed results to JSON file."""
     detailed_results = {
         'evaluation_summary': stats,
         'individual_results': results,
         'evaluation_settings': {
             'model_evaluated': model_name,
-            'extraction_model': extraction_model,
-            'evaluation_framework': 'logicifeval_mini'
+            'evaluation_framework': 'logicif',
+            'parsing_method': 'rule-based (jsonparse)'
         }
     }
     
@@ -242,24 +212,27 @@ def save_detailed_results(results: List[Dict[str, Any]], stats: Dict[str, Any],
 def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Evaluate model performance on LogicIF Mini using parallel OpenAI extraction",
+        description="Evaluate model performance on LogicIF using fast, local rule-based JSON parsing",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Basic usage with default settings
-  python evaluate_logicif_mini.py
+  # Basic usage (no file output)
+  python evaluate_logicif.py
   
-  # Specify custom input file and output
-  python evaluate_logicif_mini.py --input_file model_responses.jsonl --output_file results.json
+  # Save results to file
+  python evaluate_logicif.py --output_file results.json
   
-  # Use different extraction model and more workers
-  python evaluate_logicif_mini.py --extract_model gpt-4o-mini --max_workers 30
+  # Specify custom input file
+  python evaluate_logicif.py --input_file model_responses.jsonl
   
-  # Evaluate subset of responses
-  python evaluate_logicif_mini.py --max_examples 100
+  # Evaluate subset of responses and save results
+  python evaluate_logicif.py --max_examples 100 --output_file results.json
   
-  # Quick test with limited examples in quiet mode
-  python evaluate_logicif_mini.py --max_examples 10 --quiet
+  # Quick test in quiet mode
+  python evaluate_logicif.py --max_examples 10 --quiet
+  
+  # Use custom model name and save to file
+  python evaluate_logicif.py --input_file responses.jsonl --model_name my_model --output_file results.json
         """
     )
     
@@ -267,35 +240,14 @@ Examples:
         '--input_file', '-i',
         type=str,
         default='./benchmark/logicifevalmini_sample_output.jsonl',
-        help='Path to the JSONL file containing model responses (default: GPT-5 LogicIF file)'
+        help='Path to the JSONL file containing model responses'
     )
     
     parser.add_argument(
         '--output_file', '-o',
         type=str,
-        default='./logicif_evaluation_results.json',
-        help='Path to save detailed evaluation results (default: ./logicif_evaluation_results.json)'
-    )
-    
-    parser.add_argument(
-        '--config_file', '-c',
-        type=str,
-        default='./config.json',
-        help='Path to config file containing OpenAI API key (default: ./config.json)'
-    )
-    
-    parser.add_argument(
-        '--extract_model', '-e',
-        type=str,
-        default='gpt-5-nano',
-        help='OpenAI model to use for extraction (default: gpt-5-nano)'
-    )
-    
-    parser.add_argument(
-        '--max_workers', '-w',
-        type=int,
-        default=40,
-        help='Maximum number of parallel workers for OpenAI API calls (default: 40)'
+        default=None,
+        help='Path to save detailed evaluation results (optional, no file saved if not specified)'
     )
     
     parser.add_argument(
@@ -329,7 +281,7 @@ Examples:
 
 
 def main():
-    """Main evaluation function."""
+    """Main evaluation function using fast, local rule-based JSON parsing."""
     args = parse_arguments()
     
     # Determine model name from input file if not specified
@@ -340,23 +292,17 @@ def main():
         model_name = args.model_name
     
     if not args.quiet:
-        print(f"{model_name.upper()} LogicIF Mini Evaluation")
+        print(f"{model_name.upper()} LogicIF Evaluation")
         print("=" * 50)
         print(f"📁 Input file: {args.input_file}")
-        print(f"💾 Output file: {args.output_file}")
-        print(f"🤖 Extraction model: {args.extract_model}")
-        print(f"👥 Max workers: {args.max_workers}")
+        if args.output_file:
+            print(f"💾 Output file: {args.output_file}")
         if args.max_examples:
             print(f"📊 Max examples: {args.max_examples}")
     
     # Update sys.path for reward_score module
     if args.reward_score_path not in sys.path:
         sys.path.insert(0, args.reward_score_path)
-    
-    # Load configuration
-    if not load_config(args.config_file):
-        print("❌ Cannot proceed without OpenAI API key")
-        sys.exit(1)
     
     # Load model responses
     responses = load_model_responses(args.input_file)
@@ -372,55 +318,19 @@ def main():
             print(f"🔢 Limited to first {args.max_examples} examples")
     
     if not args.quiet:
-        print(f"\n🔄 Evaluating {len(responses)} responses using parallel OpenAI calls...")
+        print(f"\n🔄 Evaluating {len(responses)} responses using rule-based parsing...")
     
-    # Evaluate all responses in parallel
+    # Evaluate all responses sequentially
     results = []
     failed_count = 0
     
-    # Use ThreadPoolExecutor for parallel API calls
-    max_workers = min(args.max_workers, len(responses))
-    
-    # Create a custom evaluate function with the extraction model
-    def evaluate_with_model(response):
-        return evaluate_single_response(response, extract_model=args.extract_model)
-    
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all evaluation tasks
-        future_to_response = {
-            executor.submit(evaluate_with_model, response): response 
-            for response in responses
-        }
+    # Simple sequential evaluation with progress bar
+    for response in tqdm(responses, desc="Evaluating responses", disable=args.quiet):
+        result = evaluate_single_response(response)
+        results.append(result)
         
-        # Collect results as they complete
-        desc = "Evaluating responses" if not args.quiet else None
-        with tqdm(total=len(responses), desc=desc, disable=args.quiet) as pbar:
-            for future in as_completed(future_to_response):
-                try:
-                    result = future.result()
-                    results.append(result)
-                    
-                    if result.get('has_error', False):
-                        failed_count += 1
-                        
-                except Exception as e:
-                    # Handle any unexpected errors
-                    response = future_to_response[future]
-                    error_result = {
-                        'score': 0.0,
-                        'output_match': False,
-                        'stats_match': False,
-                        'both_match': False,
-                        'has_error': True,
-                        'error_message': f'Evaluation failed: {str(e)}',
-                        'task_id': response.get('task_id', 'unknown'),
-                        'test_case_id': response.get('test_case_id', 'unknown'),
-                        'model_used': response.get('model_used', model_name)
-                    }
-                    results.append(error_result)
-                    failed_count += 1
-                
-                pbar.update(1)
+        if result.get('has_error', False):
+            failed_count += 1
     
     if not args.quiet:
         print(f"\n✅ Evaluation completed!")
@@ -432,14 +342,15 @@ def main():
     
     # Print results (unless quiet mode)
     if not args.quiet:
-        print_results(stats)
+        print_results(stats, model_name)
     
-    # Save detailed results
-    save_detailed_results(results, stats, args.output_file, model_name, args.extract_model)
+    # Save detailed results if output file is specified
+    if args.output_file:
+        save_detailed_results(results, stats, args.output_file, model_name)
     
     # Print summary
     print(f"\n🎉 Evaluation complete!")
-    print(f"📈 {model_name.upper()} achieved {stats['both_accuracy']*100:.2f}% accuracy on LogicIF Mini")
+    print(f"📈 {model_name.upper()} achieved {stats['both_accuracy']*100:.2f}% accuracy on LogicIF")
     print(f"📊 Task-level accuracy: {stats['task_level_accuracy']*100:.2f}%")
     
     if args.quiet:

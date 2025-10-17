@@ -114,10 +114,10 @@ def default_compute_score(
         from .ifeval import compute_score as ifeval_compute_score
 
         res = ifeval_compute_score(solution_str, ground_truth)
-    elif data_source == "logicifevalmini":
-        from . import logicifevalmini
+    elif data_source == "logicif":
+        from . import logicif
 
-        res = logicifevalmini.compute_score(solution_str, ground_truth)
+        res = logicif.compute_score(solution_str, ground_truth)
     elif data_source == "infobench":
         from . import infobench
 
