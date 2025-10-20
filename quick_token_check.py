@@ -1,12 +1,14 @@
 # Copyright 2024 Bytedance Ltd. and/or its affiliates
 """
-Quick script to check token lengths for parquet files.
+Quick script to check token lengths for parquet and jsonl files.
 Simplified version for fast analysis.
 
 Usage:
     python quick_token_check.py file.parquet
+    python quick_token_check.py file.jsonl
     python quick_token_check.py file.parquet --tokenizer /path/to/tokenizer
-    python quick_token_check.py file.parquet --filter 1024 --output filtered.parquet
+    python quick_token_check.py file.parquet --save-lengths lengths.pkl
+    python quick_token_check.py file.jsonl --column messages --save-lengths lengths.pkl
 """
 
 import argparse
@@ -14,31 +16,36 @@ import pandas as pd
 from transformers import AutoTokenizer
 import numpy as np
 import os
+import json
+import pickle
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Check token lengths for parquet files and optionally filter by token count.',
+        description='Check token lengths for parquet/jsonl files and optionally save length information.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Basic analysis
+  # Basic analysis (parquet)
   python quick_token_check.py data.parquet
+
+  # Analyze JSONL file
+  python quick_token_check.py data.jsonl --column messages
 
   # With custom tokenizer
   python quick_token_check.py data.parquet --tokenizer /path/to/model
 
-  # Filter rows with prompts ≤ 1024 tokens
-  python quick_token_check.py data.parquet --filter 1024
+  # Save length information to pickle file
+  python quick_token_check.py data.parquet --save-lengths lengths.pkl
 
-  # Filter with custom output filename
-  python quick_token_check.py data.parquet --filter 2048 --output short_prompts.parquet
+  # Save lengths for specific column
+  python quick_token_check.py data.jsonl --column messages --save-lengths lengths.pkl
         """
     )
     
     parser.add_argument(
         'file',
         type=str,
-        help='Path to the parquet file to analyze'
+        help='Path to the parquet or jsonl file to analyze'
     )
     
     parser.add_argument(
@@ -49,51 +56,134 @@ Examples:
     )
     
     parser.add_argument(
-        '--filter',
-        type=int,
-        metavar='MAX_TOKENS',
-        help='Filter and save only rows with prompts ≤ MAX_TOKENS tokens'
+        '--column',
+        type=str,
+        default='prompt',
+        help='Column name to analyze for token length (default: prompt)'
     )
     
     parser.add_argument(
-        '--output',
+        '--save-lengths',
         type=str,
         metavar='OUTPUT_FILE',
-        help='Output filename for filtered data (auto-generated if not provided)'
+        help='Save a dictionary mapping content to token length as pickle file'
     )
     
     return parser.parse_args()
+
+def load_data(file_path):
+    """Load data from parquet or jsonl file, auto-detecting the format."""
+    file_ext = os.path.splitext(file_path)[1].lower()
+    
+    if file_ext == '.parquet':
+        print(f"📂 Detected format: Parquet")
+        return pd.read_parquet(file_path), 'parquet'
+    elif file_ext in ['.jsonl', '.json']:
+        print(f"📂 Detected format: JSONL")
+        # Read jsonl file
+        data = []
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():  # Skip empty lines
+                    data.append(json.loads(line))
+        return pd.DataFrame(data), 'jsonl'
+    else:
+        raise ValueError(f"Unsupported file format: {file_ext}. Supported formats: .parquet, .jsonl, .json")
+
+def is_conversation_format(content):
+    """
+    Detect if content is in conversation format.
+    Conversation format: list of dicts with 'role' and 'content' keys.
+    """
+    if not isinstance(content, list):
+        return False
+    
+    if len(content) == 0:
+        return False
+    
+    # Check if it's a list of message dicts
+    if isinstance(content[0], dict):
+        # Should have 'role' and 'content' keys (or similar chat format)
+        return 'role' in content[0] or 'content' in content[0]
+    
+    return False
+
+def tokenize_content(content, tokenizer):
+    """
+    Tokenize content based on its format.
+    - If conversation format: use apply_chat_template
+    - If plain string: tokenize directly
+    """
+    if is_conversation_format(content):
+        # Use chat template for conversation format
+        tokens = tokenizer.apply_chat_template(content, add_generation_prompt=True)
+    else:
+        # Direct tokenization for plain string
+        if isinstance(content, str):
+            tokens = tokenizer.encode(content, add_special_tokens=True)
+        else:
+            # Convert to string if needed
+            tokens = tokenizer.encode(str(content), add_special_tokens=True)
+    
+    return tokens
 
 def main():
     args = parse_args()
     
     file_path = args.file
     tokenizer_path = args.tokenizer
-    filter_threshold = args.filter
-    output_file = args.output
+    save_lengths_file = args.save_lengths
+    column_name = args.column
     
     print(f"📁 File: {file_path}")
     print(f"🔤 Tokenizer: {tokenizer_path}")
+    print(f"📋 Column to analyze: {column_name}")
     
     # Load data and tokenizer
-    df = pd.read_parquet(file_path)
+    df, file_format = load_data(file_path)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
     
+    # Verify column exists
+    if column_name not in df.columns:
+        print(f"\n✗ Error: Column '{column_name}' not found in file")
+        print(f"Available columns: {', '.join(df.columns)}")
+        return 1
+    
     print(f"📊 Total rows: {len(df)}")
-    print(f"📋 Data sources: {df['data_source'].value_counts().to_dict()}")
+    
+    # Check if data_source column exists
+    has_data_source = 'data_source' in df.columns
+    if has_data_source:
+        print(f"📋 Data sources: {df['data_source'].value_counts().to_dict()}")
+    
+    # Detect content format from first non-null entry
+    first_content = df[column_name].dropna().iloc[0] if len(df[column_name].dropna()) > 0 else None
+    is_conversation = is_conversation_format(first_content) if first_content is not None else False
+    format_type = "conversation (chat template)" if is_conversation else "plain text"
+    print(f"🔍 Detected content format: {format_type}")
     
     print("\n" + "="*60)
     print("TOKEN LENGTH ANALYSIS")
     print("="*60)
     
-    for data_source in df['data_source'].unique():
-        subset = df[df['data_source'] == data_source]
-        
-        # Calculate token lengths
-        token_lengths = []
-        for prompt in subset['prompt']:
-            tokens = tokenizer.apply_chat_template(prompt, add_generation_prompt=True)
-            token_lengths.append(len(tokens))
+    # Calculate token lengths once for all content
+    print("Tokenizing content...")
+    all_lengths = []
+    for content in df[column_name]:
+        tokens = tokenize_content(content, tokenizer)
+        all_lengths.append(len(tokens))
+    print(f"✓ Tokenized {len(all_lengths)} items")
+    
+    # Analyze by data_source if available, otherwise analyze all data together
+    if has_data_source:
+        data_groups = [(source, df[df['data_source'] == source]) for source in df['data_source'].unique()]
+    else:
+        data_groups = [("all_data", df)]
+    
+    for group_name, subset in data_groups:
+        # Get token lengths for this subset using indices
+        subset_indices = subset.index.tolist()
+        token_lengths = [all_lengths[i] for i in subset_indices]
         
         # Quick stats
         min_len = min(token_lengths)
@@ -105,19 +195,13 @@ def main():
         thresholds = [512, 1024, 2048, 4096, 8192]
         under_counts = {t: sum(1 for x in token_lengths if x <= t) for t in thresholds}
         
-        print(f"\n{data_source} ({len(subset)} samples):")
+        print(f"\n{group_name} ({len(subset)} samples):")
         print(f"  Range: {min_len} - {max_len} tokens (avg: {mean_len:.0f})")
         print(f"  95th percentile: {p95_len:.0f}")
         for threshold in thresholds:
             count = under_counts[threshold]
             pct = count/len(subset)*100
             print(f"  ≤ {threshold} tokens: {count}/{len(subset)} ({pct:.1f}%)")
-    
-    # Overall recommendation
-    all_lengths = []
-    for prompt in df['prompt']:
-        tokens = tokenizer.apply_chat_template(prompt, add_generation_prompt=True)
-        all_lengths.append(len(tokens))
     
     overall_max = max(all_lengths)
     recommended = int(overall_max * 1.1)
@@ -135,34 +219,42 @@ def main():
     print(f"\n🎯 RECOMMENDATION:")
     print(f"  Set data.max_prompt_length={recommended} (current max: {overall_max})")
     
-    # Filter and save if requested
-    if filter_threshold is not None:
+    # Save length information if requested
+    if save_lengths_file is not None:
         print(f"\n{'='*60}")
-        print(f"FILTERING ROWS WITH ≤ {filter_threshold} TOKENS")
+        print(f"SAVING LENGTH INFORMATION")
         print(f"{'='*60}")
         
-        # Create a mask for rows that pass the filter
-        filtered_indices = [i for i, length in enumerate(all_lengths) if length <= filter_threshold]
-        filtered_df = df.iloc[filtered_indices].reset_index(drop=True)
+        # Create a dictionary mapping content to token length
+        # For lists (like chat messages), we'll use the original content as key
+        # Pickle can handle complex Python objects unlike JSON
+        length_dict = {}
+        for i, content in enumerate(df[column_name]):
+            # Convert content to a hashable representation for use as dict key
+            if isinstance(content, list):
+                # For list content (e.g., messages), use JSON string as key
+                key = json.dumps(content, ensure_ascii=False, sort_keys=True)
+            else:
+                # For string content, use as is
+                key = str(content)
+            
+            # Use already computed token length
+            length_dict[key] = all_lengths[i]
         
-        # Auto-generate output filename if not provided
-        if output_file is None:
-            base_name = os.path.splitext(file_path)[0]
-            output_file = f"{base_name}_filtered_{filter_threshold}.parquet"
+        # Save to pickle file
+        with open(save_lengths_file, 'wb') as f:
+            pickle.dump(length_dict, f)
         
-        # Save filtered data
-        filtered_df.to_parquet(output_file, index=False)
+        print(f"  ✓ Saved {len(length_dict)} content-to-length mappings")
+        print(f"  ✓ Output file: {save_lengths_file}")
         
-        print(f"  Filtered: {len(filtered_df)}/{len(df)} rows ({len(filtered_df)/len(df)*100:.1f}%)")
-        print(f"  Saved to: {output_file}")
-        
-        # Show breakdown by data source
-        print(f"\n  Breakdown by data source:")
-        for data_source in df['data_source'].unique():
-            original_count = len(df[df['data_source'] == data_source])
-            filtered_count = len(filtered_df[filtered_df['data_source'] == data_source])
-            pct = filtered_count/original_count*100 if original_count > 0 else 0
-            print(f"    {data_source}: {filtered_count}/{original_count} ({pct:.1f}%)")
+        # Show some statistics
+        unique_contents = len(length_dict)
+        total_rows = len(df)
+        if unique_contents < total_rows:
+            print(f"  ℹ️  Note: {total_rows} rows, {unique_contents} unique contents")
+    
+    return 0
 
 if __name__ == '__main__':
-    main() 
+    exit(main()) 
