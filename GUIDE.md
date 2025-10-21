@@ -21,14 +21,14 @@
 #### Step 3: Environment Variables
 Some environment variables are needed for the project. Please create a `.env`:
 ```
-HF_CACHE_DIR=hf_cache
-RAY_LOG_DIR=tmp
-TMPDIR=tmp
-TEMP=tmp
-TMP=tmp
+ROOT_DIR=/workspace
+HF_CACHE_DIR=/workspace/hf_cache
+RAY_LOG_DIR=/workspace/tmp
+TMPDIR=/workspace/tmp
+TEMP=/workspace/tmp
+TMP=/workspace/tmp
 CUDA_DEVICE_ORDER=PCI_BUS_ID
 RAY_DEBUG=legacy
-ROOT_DIR=/workspace
 ```
 Then run `export $(grep -v '^#' .env | xargs)` to export them. 
 
