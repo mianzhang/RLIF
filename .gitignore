@@ -131,5 +131,6 @@ outputs
 benchmark/
 verl_data/
 eval_res/
+hf_cache/
 test.sh
 nohup.out

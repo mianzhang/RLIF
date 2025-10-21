@@ -1,6 +1,25 @@
 
-## Environment Variables
-Some environment variables are needed for the project. Please create a `.env` like:
+
+## Docker Setup
+
+#### Step 1: Build the Docker Image
+
+```bash
+>>> docker build -t rlif:latest .
+```
+
+#### Step 2: Run the Container
+```bash
+>>> docker run --shm-size=64g --gpus all -it -v $(pwd):/workspace -w /workspace rlif:latest
+```
+
+- The `-v $(pwd):/workspace` flag mounts your current directory into the container
+- The `--gpus all` flag enables GPU access inside the container
+- If encountering `Error while creating shared memory segment`, try to increase `--shm-size` and renew the container.
+
+
+#### Step 3: Environment Variables
+Some environment variables are needed for the project. Please create a `.env`:
 ```
 HF_CACHE_DIR=hf_cache
 RAY_LOG_DIR=tmp
@@ -9,11 +28,15 @@ TEMP=tmp
 TMP=tmp
 CUDA_DEVICE_ORDER=PCI_BUS_ID
 RAY_DEBUG=legacy
-ROOT_DIR=$pwd
-HF_TOKEN=[for huggingface connection]
-WANDB_API_KEY=[for wandb connection]
+ROOT_DIR=/workspace
 ```
 Then run `export $(grep -v '^#' .env | xargs)` to export them. 
+
+#### Step 4: Login in to Huggingface and Wandb
+```
+>>> hf auth login
+>>> wandb login
+```
 
 ## Preparation
 #### Step 1: Data 
@@ -23,24 +46,6 @@ Run `python hf_data_download.py` to download all the training and eval data into
 
 #### Step 2: Base Models
 Run `python hf_model_download.py` to download the base models from huggingface. We only train Qwen3 models at this stage.
-
-
-
-## Docker Setup
-
-#### Step 1: Build the Docker Image
-
-```bash
-docker build -t rlif:latest .
-```
-
-#### Step 2: Run the Container
-```bash
-docker run --gpus all -it -v $(pwd):/workspace -w workspace rlif:latest
-```
-
-- The `-v $(pwd):/workspace` flag mounts your current directory into the container
-- The `--gpus all` flag enables GPU access inside the container
 
 
 ## Training

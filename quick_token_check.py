@@ -18,6 +18,7 @@ import numpy as np
 import os
 import json
 import pickle
+from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -69,6 +70,13 @@ Examples:
         help='Save a dictionary mapping content to token length as pickle file'
     )
     
+    parser.add_argument(
+        '--force-chat-template',
+        action='store_true',
+        help='When saving lengths, convert plain text to conversation format first. '
+             'This ensures keys match VERL format: [{"role": "user", "content": text}]'
+    )
+    
     return parser.parse_args()
 
 def load_data(file_path):
@@ -82,8 +90,12 @@ def load_data(file_path):
         print(f"📂 Detected format: JSONL")
         # Read jsonl file
         data = []
+        # First count lines for progress bar
         with open(file_path, 'r', encoding='utf-8') as f:
-            for line in f:
+            total_lines = sum(1 for line in f if line.strip())
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in tqdm(f, total=total_lines, desc="Loading JSONL", unit="line"):
                 if line.strip():  # Skip empty lines
                     data.append(json.loads(line))
         return pd.DataFrame(data), 'jsonl'
@@ -95,6 +107,9 @@ def is_conversation_format(content):
     Detect if content is in conversation format.
     Conversation format: list of dicts with 'role' and 'content' keys.
     """
+    if isinstance(content, np.ndarray):
+        content = content.tolist()
+    
     if not isinstance(content, list):
         return False
     
@@ -108,12 +123,33 @@ def is_conversation_format(content):
     
     return False
 
-def tokenize_content(content, tokenizer):
+def convert_to_conversation_format(content):
+    """
+    Convert plain text content to conversation format.
+    Returns the conversation format: [{"role": "user", "content": text}]
+    """
+    if is_conversation_format(content):
+        return content
+    else:
+        # Convert plain text to conversation format
+        text = content if isinstance(content, str) else str(content)
+        return [{"role": "user", "content": text}]
+
+def tokenize_content(content, tokenizer, force_chat_template=False):
     """
     Tokenize content based on its format.
     - If conversation format: use apply_chat_template
-    - If plain string: tokenize directly
+    - If plain string: tokenize directly (or use chat template if forced)
+    
+    Args:
+        content: Content to tokenize
+        tokenizer: Tokenizer to use
+        force_chat_template: If True, convert plain text to conversation format first
     """
+    if force_chat_template and not is_conversation_format(content):
+        # Convert to conversation format first
+        content = convert_to_conversation_format(content)
+    
     if is_conversation_format(content):
         # Use chat template for conversation format
         tokens = tokenizer.apply_chat_template(content, add_generation_prompt=True)
@@ -162,6 +198,11 @@ def main():
     format_type = "conversation (chat template)" if is_conversation else "plain text"
     print(f"🔍 Detected content format: {format_type}")
     
+    # Check if force_chat_template is enabled
+    if args.force_chat_template and not is_conversation:
+        print(f"⚠️  --force-chat-template enabled: will convert plain text to conversation format")
+        format_type = "plain text → conversation (chat template)"
+    
     print("\n" + "="*60)
     print("TOKEN LENGTH ANALYSIS")
     print("="*60)
@@ -169,8 +210,8 @@ def main():
     # Calculate token lengths once for all content
     print("Tokenizing content...")
     all_lengths = []
-    for content in df[column_name]:
-        tokens = tokenize_content(content, tokenizer)
+    for content in tqdm(df[column_name], desc="Tokenizing", unit="item"):
+        tokens = tokenize_content(content, tokenizer, force_chat_template=args.force_chat_template)
         all_lengths.append(len(tokens))
     print(f"✓ Tokenized {len(all_lengths)} items")
     
@@ -204,7 +245,6 @@ def main():
             print(f"  ≤ {threshold} tokens: {count}/{len(subset)} ({pct:.1f}%)")
     
     overall_max = max(all_lengths)
-    recommended = int(overall_max * 1.1)
     
     print(f"\n{'='*60}")
     print("OVERALL STATISTICS")
@@ -216,8 +256,7 @@ def main():
         pct = count/len(all_lengths)*100
         print(f"  ≤ {threshold} tokens: {count}/{len(all_lengths)} ({pct:.1f}%)")
     
-    print(f"\n🎯 RECOMMENDATION:")
-    print(f"  Set data.max_prompt_length={recommended} (current max: {overall_max})")
+    print(f"  Set data.max_prompt_length={overall_max}) + N")
     
     # Save length information if requested
     if save_lengths_file is not None:
@@ -228,25 +267,36 @@ def main():
         # Create a dictionary mapping content to token length
         # For lists (like chat messages), we'll use the original content as key
         # Pickle can handle complex Python objects unlike JSON
+        print("Creating length dictionary...")
         length_dict = {}
-        for i, content in enumerate(df[column_name]):
+        for i, content in enumerate(tqdm(df[column_name], desc="Building dict", unit="item")):
+            # If force_chat_template is enabled, convert to conversation format first
+            if args.force_chat_template and not is_conversation_format(content):
+                # Convert plain text to conversation format for the key
+                content_for_key = convert_to_conversation_format(content)
+            else:
+                content_for_key = content
+            
             # Convert content to a hashable representation for use as dict key
-            if isinstance(content, list):
+            if isinstance(content_for_key, list):
                 # For list content (e.g., messages), use JSON string as key
-                key = json.dumps(content, ensure_ascii=False, sort_keys=True)
+                key = json.dumps(content_for_key, ensure_ascii=False, sort_keys=True)
             else:
                 # For string content, use as is
-                key = str(content)
+                key = str(content_for_key)
             
             # Use already computed token length
             length_dict[key] = all_lengths[i]
         
         # Save to pickle file
+        print("Saving to pickle file...")
         with open(save_lengths_file, 'wb') as f:
             pickle.dump(length_dict, f)
         
         print(f"  ✓ Saved {len(length_dict)} content-to-length mappings")
         print(f"  ✓ Output file: {save_lengths_file}")
+        if args.force_chat_template:
+            print(f"  ℹ️  Keys saved in conversation format: [{{\"role\": \"user\", \"content\": ...}}]")
         
         # Show some statistics
         unique_contents = len(length_dict)

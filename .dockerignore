@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Data and model files
+verl_data/
+eval_res/
+tmp/
+log/
+hf_cache/
+checkpoints/
+outputs/
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+
+# Documentation
+docs/_build/
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Other
+.DS_Store
+*.log 
+test.py
