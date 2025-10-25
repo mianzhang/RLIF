@@ -28,6 +28,8 @@ RUN pip install --no-cache-dir wandb
 
 RUN pip install --no-cache-dir huggingface-hub
 
+RUN pip uninstall -y flash-attn
+
 RUN pip install flash-attn --no-build-isolation
 
 RUN pip install --no-cache-dir gpustat
