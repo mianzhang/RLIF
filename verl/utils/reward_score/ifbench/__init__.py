@@ -20,7 +20,7 @@ from .evaluation import evaluate_instruction_following, compute_score_internal
 from .utils import import_ifbench_modules
 
 
-def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: bool = True) -> Dict[str, Any]:
+def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: bool = True, return_verl_reward: bool = True) -> Dict[str, Any]:
     """
     Compute the IFBench instruction following score.
     
@@ -32,10 +32,10 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: boo
     Returns:
         Dictionary containing the score and evaluation details
     """
-    return compute_score_internal(solution_str, ground_truth, strict)
+    return compute_score_internal(solution_str, ground_truth, strict=strict, return_verl_reward=return_verl_reward)
 
 
-def compute_score_loose(solution_str: str, ground_truth: Union[str, Dict]) -> Dict[str, Any]:
+def compute_score_loose(solution_str: str, ground_truth: Union[str, Dict], return_verl_reward: bool = True) -> Dict[str, Any]:
     """
     Compute the IFBench instruction following score using loose evaluation.
     
@@ -46,7 +46,7 @@ def compute_score_loose(solution_str: str, ground_truth: Union[str, Dict]) -> Di
     Returns:
         Dictionary containing the score and evaluation details
     """
-    return compute_score(solution_str, ground_truth, strict=False)
+    return compute_score(solution_str, ground_truth, strict=False, return_verl_reward=return_verl_reward)
 
 
 # Export main functions

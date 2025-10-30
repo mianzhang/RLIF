@@ -36,9 +36,6 @@ def remove_think_tags(text: str) -> str:
     # This handles multiline content and is case-insensitive
     pattern = r'<think>.*?</think>'
     cleaned_text = re.sub(pattern, '', text, flags=re.DOTALL | re.IGNORECASE)
-    
-    # Clean up any extra whitespace that might be left
-    cleaned_text = re.sub(r'\n\s*\n', '\n\n', cleaned_text)  # Replace multiple newlines with double newlines
     cleaned_text = cleaned_text.strip()
     
     return cleaned_text

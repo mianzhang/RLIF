@@ -22,6 +22,8 @@ RUN pip install --no-cache-dir -e .
 # RUN pip install --no-cache-dir flash-attn==2.8.3
 
 # Install vllm
+RUN pip uninstall -y vllm
+
 RUN pip install --no-cache-dir vllm==0.10.1.1
 
 RUN pip install --no-cache-dir wandb
@@ -30,7 +32,7 @@ RUN pip install --no-cache-dir huggingface-hub
 
 RUN pip uninstall -y flash-attn
 
-RUN pip install flash-attn --no-build-isolation
+RUN pip install flash-attn==2.8.3 --no-build-isolation
 
 RUN pip install --no-cache-dir gpustat
 

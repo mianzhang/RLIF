@@ -20,7 +20,7 @@ from .evaluation import evaluate_instruction_following, compute_score_internal
 from .utils import import_iftrain_modules
 
 
-def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: bool = True) -> Dict[str, Any]:
+def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: bool = True, return_verl_reward: bool = True) -> Dict[str, Any]:
     """
     Compute the IFTrain instruction following score.
     
@@ -28,25 +28,27 @@ def compute_score(solution_str: str, ground_truth: Union[str, Dict], strict: boo
         solution_str: The model's response to evaluate
         ground_truth: Either a JSON string or dict containing instruction information
         strict: Whether to use strict evaluation mode
+        return_verl_reward: Whether to return the VERL reward score
         
     Returns:
         Dictionary containing the score and evaluation details
     """
-    return compute_score_internal(solution_str, ground_truth, strict)
+    return compute_score_internal(solution_str, ground_truth, strict=strict, return_verl_reward=return_verl_reward)
 
 
-def compute_score_loose(solution_str: str, ground_truth: Union[str, Dict]) -> Dict[str, Any]:
+def compute_score_loose(solution_str: str, ground_truth: Union[str, Dict], return_verl_reward: bool = True) -> Dict[str, Any]:
     """
     Compute the IFTrain instruction following score using loose evaluation.
     
     Args:
         solution_str: The model's response to evaluate
         ground_truth: Either a JSON string or dict containing instruction information
+        return_verl_reward: Whether to return the VERL reward score
         
     Returns:
         Dictionary containing the score and evaluation details
     """
-    return compute_score(solution_str, ground_truth, strict=False)
+    return compute_score(solution_str, ground_truth, strict=False, return_verl_reward=return_verl_reward)
 
 
 # Export main functions
