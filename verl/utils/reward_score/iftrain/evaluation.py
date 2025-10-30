@@ -126,7 +126,7 @@ def compute_score_internal(solution_str: str, ground_truth: Union[str, Dict], st
         # Use binary score: 1.0 if all instructions followed, 0.0 otherwise
         score = 1.0 if eval_result['follow_all_instructions'] else 0.0
         
-        if random.random() < 0.05:
+        if random.random() < 0.01:
             print(f"Score: {score}")
             print(f"Instruction IDs: {instruction_ids}")
             print(f"Solution: {solution_str}")
