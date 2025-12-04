@@ -86,11 +86,11 @@ Please run `python generate_train_recipes.py` to generate the corresponding trai
 We move forward to explore how to merge logicif into RL training to avoid the performance drop in multi-step problem solving tasks.
 - strategy 1: simple 1:1 ratio merging
 - strategy 2: dynamically adjust the sampling weights between IF and LogicIF data based on the online training rewards, sampling more from data source with lower rewards.
-- strategy 3: because the LogicIF data has complexity scores, we design a Reward-Gated Curriculum with Recency-Weighted Interval Sampling strategy: a) the LogicIF data are divided into a intital interval + remaining N even intervals according to the complexity scores; a) during training, we set a reward threshold (0.5) where the model unlocks harder intervals only if it can achieve the reward larger than a reward threshold. We also optionally can decay the sampling weights of older intervals.
+- strategy 3: because the LogicIF data has complexity scores, we design a Reward-Gated Curriculum with Recency-Weighted Interval Sampling strategy: a) the LogicIF data are divided into a intital interval + remaining N even intervals according to the complexity scores; a) during training, we set a reward threshold (0.5) where the model unlocks harder intervals only if it can achieve the reward larger than the reward threshold. We also optionally can decay the sampling weights of older intervals.
 
 
 So, for this stage, let's first train Qwen1.7B with thinking:
-1. Qwen3-1.7B (think) trained on fixed 1:1 IF and LogicIF data.
-2. Qwen3-1.7B (think) trained on IF and LogicIF data with dynamically adjust the sampling weights.
-3. Qwen3-1.7B (think) trained on IF and LogicIF data with reward-gated curriculum.
-4. Qwen3-1.7B (think) trained on IF and LogicIF data with reward-gated curriculum + interval decay.
+1. Qwen3-1.7B (think) trained on fixed 1:1 IF and LogicIF data. (`stage2_qwen17b_think_1v1.sh`)
+2. Qwen3-1.7B (think) trained on IF and LogicIF data with dynamically adjust the sampling weights. (`stage2_qwen17b_think_ema.sh`)
+3. Qwen3-1.7B (think) trained on IF and LogicIF data with reward-gated curriculum. (`stage2_qwen17b_think_ema_rewardCurriculum.sh`)
+4. Qwen3-1.7B (think) trained on IF and LogicIF data with reward-gated curriculum + interval decay. (`stage2_qwen17b_think_ema_rewardCurriculum_decay.sh`)
