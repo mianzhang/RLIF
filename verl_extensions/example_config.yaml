@@ -1,0 +1,147 @@
+# Example configuration for multi-source training with verl
+# This file shows how to configure the multi-source samplers
+
+data:
+  train_files:
+    - ~/data/source1/train.parquet
+    - ~/data/source2/train.parquet
+  
+  val_files: ~/data/mixed/test.parquet
+  
+  train_batch_size: 256
+  max_prompt_length: 512
+  max_response_length: 1024
+  filter_overlong_prompts: true
+  truncation: 'error'
+  dataloader_num_workers: 0  # Required for curriculum samplers
+  
+  sampler:
+    class_path: pkg://verl_extensions.multi_source_sampler
+    class_name: MultiSourceSampler
+    
+    # ===== Sampling Strategy =====
+    # 'weighted': Use source_weights for custom ratios
+    # 'proportional': Weight by dataset size
+    sampling_strategy: weighted
+    
+    source_weights:
+      source1: 1.0
+      source2: 1.0
+    
+    # ===== Adaptive Weights (Optional) =====
+    # If true, dynamically adjust weights based on source rewards
+    # Sources with lower rewards get higher weights
+    adaptive_weights: false
+    alpha: 0.1                   # EMA smoothing (0.05-0.2)
+    update_frequency: 5          # Update every N batches
+    temperature: 0.3             # Lower = more sensitive
+    max_source_ratio: 3.0        # Max weight ratio
+
+
+# =============================================================================
+# EXAMPLE 1: Fixed Weights (Simple 1:1 Ratio)
+# =============================================================================
+# sampler:
+#   class_name: MultiSourceSampler
+#   sampling_strategy: weighted
+#   source_weights:
+#     source1: 1.0
+#     source2: 1.0
+
+
+# =============================================================================
+# EXAMPLE 2: Fixed Weights (2:1 Ratio)
+# =============================================================================
+# sampler:
+#   class_name: MultiSourceSampler
+#   sampling_strategy: weighted
+#   source_weights:
+#     math: 2.0
+#     code: 1.0
+
+
+# =============================================================================
+# EXAMPLE 3: Adaptive Weights (Auto-Balance Sources)
+# =============================================================================
+# sampler:
+#   class_name: MultiSourceSampler
+#   sampling_strategy: weighted
+#   source_weights:
+#     source1: 1.0
+#     source2: 1.0
+#   adaptive_weights: true
+#   alpha: 0.1
+#   update_frequency: 5
+#   temperature: 0.3
+#   max_source_ratio: 3.0
+
+
+# =============================================================================
+# EXAMPLE 4: Time-Based Curriculum
+# =============================================================================
+# Start with easy data, linearly increase complexity over time
+# sampler:
+#   class_name: TimeCurriculumSampler
+#   sampling_strategy: weighted
+#   source_weights:
+#     iftrain: 1.0
+#     logicif: 1.0
+#   # Optional: Adaptive source weights
+#   adaptive_weights: true
+#   alpha: 0.1
+#   temperature: 0.3
+#   # Time-based curriculum config
+#   complexity_source: logicif
+#   initial_complexity_percentile: 30
+#   final_complexity_percentile: 100
+#   complexity_warmup_steps: 100
+
+
+# =============================================================================
+# EXAMPLE 5: Reward-Gated Curriculum
+# =============================================================================
+# Unlock harder data only when model achieves performance threshold
+# sampler:
+#   class_name: RewardCurriculumSampler
+#   sampling_strategy: weighted
+#   source_weights:
+#     iftrain: 1.0
+#     logicif: 1.0
+#   # Reward-gated curriculum config
+#   complexity_source: logicif
+#   initial_complexity_percentile: 20
+#   final_complexity_percentile: 80
+#   num_intervals: 10
+#   reward_threshold: 0.125
+#   reward_alpha: 0.1
+#   min_batches_per_level: 10
+#   check_frequency: 3
+#   # Optional: Focus on newly unlocked intervals
+#   focus_new_intervals: true
+#   interval_decay: 0.5  # Weight decay for older intervals
+
+
+# =============================================================================
+# EXAMPLE 6: Reward-Gated with Adaptive Weights
+# =============================================================================
+# Combines both: reward-gated complexity + adaptive source balancing
+# sampler:
+#   class_name: RewardCurriculumSampler
+#   sampling_strategy: weighted
+#   source_weights:
+#     iftrain: 1.0
+#     logicif: 1.0
+#   # Adaptive source weights
+#   adaptive_weights: true
+#   alpha: 0.1
+#   temperature: 0.3
+#   max_source_ratio: 3.0
+#   # Reward-gated curriculum
+#   complexity_source: logicif
+#   initial_complexity_percentile: 30
+#   final_complexity_percentile: 100
+#   num_intervals: 10
+#   reward_threshold: 0.125
+#   reward_alpha: 0.1
+#   min_batches_per_level: 20
+#   check_frequency: 5

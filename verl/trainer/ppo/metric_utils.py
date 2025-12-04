@@ -15,7 +15,7 @@
 Metrics related to the PPO trainer.
 """
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from functools import partial
 from typing import Any, Callable
 
@@ -488,3 +488,52 @@ def process_validation_metrics(
                 data_src2var2metric2val[data_source][var_name][metric_name] = np.mean(uid_vals)
 
     return data_src2var2metric2val
+
+
+def compute_source_metrics(batch: DataProto) -> dict[str, Any]:
+    """
+    Compute per-source batch composition and reward metrics.
+    
+    Tracks:
+    - Number of samples from each data source in the batch
+    - Average reward for each data source
+    
+    Args:
+        batch: DataProto containing training batch with 'data_source' and 'token_level_scores'
+    
+    Returns:
+        Dictionary with metrics like:
+        {
+            'source/LogicIF/count': 120,
+            'source/LogicIF/reward': 12.5,
+            'source/IFTrain/count': 136,
+            'source/IFTrain/reward': 8.3,
+        }
+    """
+    metrics = {}
+    
+    # Check if data_source is available
+    if 'data_source' not in batch.non_tensor_batch:
+        return metrics
+    
+    sources = batch.non_tensor_batch['data_source']
+    
+    # Count samples per source
+    source_counts = Counter(sources)
+    for source, count in source_counts.items():
+        metrics[f'source/{source}/count'] = count
+    
+    # Compute average reward per source if available
+    if 'token_level_scores' in batch.batch:
+        # Sum over tokens to get per-sample reward
+        sample_rewards = batch.batch['token_level_scores'].sum(-1).cpu().numpy()
+        
+        # Group by source and compute mean
+        source_rewards = defaultdict(list)
+        for reward, source in zip(sample_rewards, sources):
+            source_rewards[source].append(float(reward))
+        
+        for source, rewards in source_rewards.items():
+            metrics[f'source/{source}/reward'] = np.mean(rewards)
+    
+    return metrics
