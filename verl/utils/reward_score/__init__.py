@@ -122,6 +122,11 @@ def default_compute_score(
         from . import infobench
 
         res = infobench.compute_score(solution_str, ground_truth)
+    elif data_source == "deepscaler":
+        # DeepScaleR uses \boxed{} format, use math_dapo which handles Answer: \boxed{X} format
+        from . import math_dapo
+
+        res = math_dapo.compute_score(solution_str, ground_truth)
 
     else:
         raise NotImplementedError(f"Reward function is not implemented for {data_source=}")

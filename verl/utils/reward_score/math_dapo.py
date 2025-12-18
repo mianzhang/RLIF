@@ -263,10 +263,10 @@ def compute_score(
     correct, pred = verify(solution_str, ground_truth, strict_box_verify, pause_tokens_index)
 
     reward = 1.0 if correct else -1.0
-    acc = correct
 
+    # Return only score and has_error for consistency with IF reward functions
+    # when mixing data sources (iftrain, logicif, etc.)
     return {
         "score": reward,
-        "acc": acc,
-        "pred": pred,
+        "has_error": False,
     }
